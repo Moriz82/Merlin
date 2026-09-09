@@ -1,0 +1,54 @@
+{
+  "captures": [
+    {
+      "application": "Merlin",
+      "capture_id": "merlin-inbox-1366x768",
+      "captured_at_utc": "2026-09-09T04:22:27.135375Z",
+      "file": "merlin-inbox-1366x768.png",
+      "fixture": "local-synthetic-rehearsal-2026-09-09",
+      "notes": "Received technical lead queue with evidence and writing state.",
+      "operator": "Codex acceptance runner",
+      "route": "#/inbox",
+      "sha256": "5ab950ae4d80d3f4317bd653995c3e7f193a63de858a6be5b3bc0270e7321c1d",
+      "viewport": "1366x768"
+    },
+    {
+      "application": "Merlin",
+      "capture_id": "merlin-editor-1366x768",
+      "captured_at_utc": "2026-09-09T04:22:27.379289Z",
+      "file": "merlin-editor-1366x768.png",
+      "fixture": "local-synthetic-rehearsal-2026-09-09",
+      "notes": "Markdown editor, preview controls, evidence selection, and save state.",
+      "operator": "Codex acceptance runner",
+      "route": "#/drafts",
+      "sha256": "ffe0e90d7757d3f69225d46ff960f0ebaae9e6db11fa95c4a4b145df397f8bb4",
+      "viewport": "1366x768"
+    },
+    {
+      "application": "Merlin",
+      "capture_id": "merlin-inbox-1920x1080",
+      "captured_at_utc": "2026-09-09T04:22:31.437236Z",
+      "file": "merlin-inbox-1920x1080.png",
+      "fixture": "local-synthetic-rehearsal-2026-09-09",
+      "notes": "Received technical lead queue with evidence and writing state.",
+      "operator": "Codex acceptance runner",
+      "route": "#/inbox",
+      "sha256": "c1746b4f3f1efd54bb3a8d20993543b87250e3283c9ec06153dc522978d966c7",
+      "viewport": "1920x1080"
+    },
+    {
+      "application": "Merlin",
+      "capture_id": "merlin-editor-1920x1080",
+      "captured_at_utc": "2026-09-09T04:22:31.677278Z",
+      "file": "merlin-editor-1920x1080.png",
+      "fixture": "local-synthetic-rehearsal-2026-09-09",
+      "notes": "Markdown editor, preview controls, evidence selection, and save state.",
+      "operator": "Codex acceptance runner",
+      "route": "#/drafts",
+      "sha256": "6b3d06392ca45e963371226f00ff1941cf9da3c389c32352b9809a38892d33ba",
+      "viewport": "1920x1080"
+    }
+  ],
+  "schema_version": 1,
+  "synthetic_only": true
+}

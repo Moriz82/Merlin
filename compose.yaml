@@ -1,0 +1,43 @@
+name: merlin
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: merlin:${APP_VERSION:-local}
+    command: ["python", "-m", "workspace.cli", "--workspace", "/state", "serve", "--bind", "0.0.0.0"]
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    environment:
+      APP_BIND: 0.0.0.0
+      APP_PORT: "${APP_PORT:-8711}"
+      APP_TLS_CERT: "${APP_TLS_CERT:-}"
+      APP_TLS_KEY: "${APP_TLS_KEY:-}"
+      APP_PEER_CA_BUNDLE: "${APP_PEER_CA_BUNDLE:-}"
+      CONTAINERIZED: "1"
+    ports:
+      - "${HOST_BIND:-127.0.0.1}:${APP_PORT:-8711}:${APP_PORT:-8711}"
+    networks:
+      team:
+        aliases: [merlin]
+    volumes:
+      - ./state:/state
+      - ./tls:/tls:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 1536m
+    init: true
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,socket;s=socket.create_connection(('127.0.0.1',int(os.environ['APP_PORT'])),2);s.close()"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+networks:
+  team:
+    name: cptc-team-workspace
+    external: true

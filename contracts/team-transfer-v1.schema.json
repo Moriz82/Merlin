@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cptc-team-workspace:team-transfer:v1",
+  "title": "Harbinger and Merlin record bundle manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "bundle_id",
+    "engagement_id",
+    "source_instance",
+    "recipient_id",
+    "created_at",
+    "records",
+    "files"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "const": "record_bundle" },
+    "bundle_id": { "type": "string", "format": "uuid" },
+    "engagement_id": { "type": "string", "format": "uuid" },
+    "source_instance": { "type": "string", "format": "uuid" },
+    "recipient_id": { "type": "string", "format": "uuid" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "records": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "$ref": "#/$defs/record" }
+    },
+    "files": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "$ref": "#/$defs/file" }
+    }
+  },
+  "$defs": {
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "revision_id", "data", "updated_at"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "kind": {
+          "enum": [
+            "asset",
+            "relationship",
+            "observation",
+            "finding",
+            "lead",
+            "draft",
+            "upload",
+            "question",
+            "comment"
+          ]
+        },
+        "revision_id": { "type": "string", "format": "uuid" },
+        "data": { "type": "object", "maxProperties": 128 },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "size", "sha256"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "size": { "type": "integer", "minimum": 0, "maximum": 268435456 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}
