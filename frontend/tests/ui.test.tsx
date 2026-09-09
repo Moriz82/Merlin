@@ -16,6 +16,8 @@ class MockEventSource {
   close() {}
 }
 let fetchMock: ReturnType<typeof vi.fn>
+async function settledRender(ui: Parameters<typeof render>[0]) { let result!: ReturnType<typeof render>; await act(async () => { result = render(ui); }); return result; }
+
 
 function baseFetch(path: string) {
   if (path === '/api/session') return response(session)
@@ -26,8 +28,8 @@ function baseFetch(path: string) {
   return response({ items: [] })
 }
 
-beforeEach(() => { location.hash = '#/inbox'; eventSources.length = 0; vi.stubGlobal('EventSource', MockEventSource); fetchMock = vi.fn((input: RequestInfo | URL) => baseFetch(String(input))); vi.stubGlobal('fetch', fetchMock) })
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers() })
+beforeEach(() => { history.replaceState(null, '', '#/inbox'); eventSources.length = 0; vi.stubGlobal('EventSource', MockEventSource); fetchMock = vi.fn((input: RequestInfo | URL) => baseFetch(String(input))); vi.stubGlobal('fetch', fetchMock) })
+afterEach(async () => { await act(async () => {}); cleanup(); vi.restoreAllMocks(); vi.useRealTimers() })
 
 describe('Merlin UI contract', () => {
   it('logs in through the session contract', async () => {
@@ -55,8 +57,8 @@ describe('Merlin UI contract', () => {
     expect(screen.getByText(/Connection not confirmed/)).toBeInTheDocument()
     act(() => eventSources[0]?.onopen?.())
     expect(screen.getByText(/connected/)).toBeInTheDocument()
-    act(() => eventSources[0]?.emit('change'))
-    act(() => eventSources[0]?.emit('reset'))
+    await act(async () => eventSources[0]?.emit('change'))
+    await act(async () => eventSources[0]?.emit('reset'))
     expect(screen.getByText(/connected/)).toBeInTheDocument()
     act(() => eventSources[0]?.onerror?.())
     expect(screen.getByText(/Connection lost/)).toBeInTheDocument()
@@ -245,8 +247,8 @@ describe('Merlin UI contract', () => {
     await waitFor(() => expect(opened).toHaveBeenCalledWith(created))
   })
 
-  it('provides real Write, Split, and Preview views', () => {
-    render(<DraftEditor selected={draft} onSaved={() => undefined} onDirtyChange={() => undefined} />)
+  it('provides real Write, Split, and Preview views', async () => {
+    await settledRender(<DraftEditor selected={draft} onSaved={() => undefined} onDirtyChange={() => undefined} />)
     expect(screen.getByLabelText('Draft description in Markdown')).toBeInTheDocument()
     expect(screen.getByLabelText('Markdown preview')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Write' }))
@@ -259,7 +261,7 @@ describe('Merlin UI contract', () => {
   it('renders only selected local evidence and fragment Markdown links', async () => {
     const evidenceId = '11111111-1111-4111-8111-111111111111'
     const selected = { ...draft, data: { ...draft.data, evidence_ids: [evidenceId], description: `[http](https://outside.invalid) [mail](mailto:outside@example.invalid) [data](data:text/plain,unsafe) [script](javascript:alert(1)) [bad](/api/evidence/not-a-uuid/render) [safe](/api/evidence/${evidenceId}/render) [part](#evidence)\n![local](/api/evidence/${evidenceId}/render) ![remote](https://outside.invalid/pixel)` } }
-    render(<DraftEditor selected={selected} onSaved={() => undefined} onDirtyChange={() => undefined} />)
+    await settledRender(<DraftEditor selected={selected} onSaved={() => undefined} onDirtyChange={() => undefined} />)
     expect(screen.getByRole('link', { name: 'safe' })).toHaveAttribute('href', `/api/evidence/${evidenceId}/render`)
     expect(screen.getByRole('link', { name: 'part' })).toHaveAttribute('href', '#evidence')
     expect(screen.queryByRole('link', { name: 'http' })).toBeNull()
@@ -388,11 +390,11 @@ describe('Merlin UI contract', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'New draft' }))
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Unsaved title' } })
     fireEvent.click(screen.getByRole('link', { name: 'Inbox' }))
-    expect(await screen.findByRole('dialog', { name: 'Draft is not saved' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Work is not saved' })).toBeInTheDocument()
     expect(screen.getByLabelText('Title')).toHaveValue('Unsaved title')
   })
 
-  it('replaces remote and authenticated local Markdown images without creating requests', () => {
+  it('replaces remote and authenticated local Markdown images without creating requests', async () => {
     const withImages = {
       ...draft,
       data: {
@@ -400,7 +402,7 @@ describe('Merlin UI contract', () => {
         description: '![remote](https://outside.invalid/pixel)\n![local](/api/evidence/e1/download)',
       },
     }
-    render(<DraftEditor selected={withImages} onSaved={() => undefined} onDirtyChange={() => undefined} />)
+    await settledRender(<DraftEditor selected={withImages} onSaved={() => undefined} onDirtyChange={() => undefined} />)
     expect(screen.getAllByText('Embedded image omitted. Attach reviewed evidence instead.')).toHaveLength(2)
     expect(document.querySelector('img')).toBeNull()
     expect(fetchMock.mock.calls.map(call => String(call[0]))).toEqual(['/api/evidence'])
@@ -421,7 +423,7 @@ describe('Merlin UI contract', () => {
   })
 
   it('does not call a locked draft autosaving and keeps local text available for file save', async () => {
-    const rendered = render(<DraftEditor selected={draft} onSaved={() => undefined} onDirtyChange={() => undefined} />)
+    const rendered = await settledRender(<DraftEditor selected={draft} onSaved={() => undefined} onDirtyChange={() => undefined} />)
     fireEvent.change(screen.getByLabelText('Draft description in Markdown'), { target: { value: 'Local text before delivery' } })
     rendered.rerender(<DraftEditor selected={draft} lockedReason="uncertain delivery" onSaved={() => undefined} onDirtyChange={() => undefined} />)
     expect(screen.getByLabelText('Draft description in Markdown')).toHaveValue('Local text before delivery')
@@ -580,7 +582,8 @@ describe('Merlin UI contract', () => {
       return baseFetch(String(input))
     })
     render(<DraftFlow selected={draft} onBack={() => undefined} />)
-    expect(await screen.findByText(/Finding text and evidence manifest are delivered/)).toHaveTextContent('Selected evidence files must be attached in Ghostwriter; they were not uploaded.')
+    expect(await screen.findByText(/Evidence files will need to be attached in Ghostwriter/)).toBeInTheDocument()
+    expect(screen.queryByText(/Finding text and evidence manifest are delivered/)).toBeNull()
     expect(screen.queryByText(/Attachments uploaded/i)).toBeNull()
   })
 })

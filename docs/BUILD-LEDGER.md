@@ -21,3 +21,11 @@ Private release acceptance, 2026-09-09:
 - Dell evidence: Kali VMs 1110 and 1111, private TLS pairing, LAN and encrypted-file exchange, backup and restore, and performance fixtures.
 - Local Ghostwriter v7.2.6 API delivery and uncertain-state reconciliation passed. A separate Ghostwriter evidence upload, DOCX export, package check, text check, and rendered-page review also passed.
 - Runtime model calls: zero.
+
+Frontend redesign and responsive QA, 2026-09-09:
+
+- Design and implementation: Astra agent (`/root/astra_ui_redesign_plan`), `gpt-6-astra`, xhigh.
+- Integration and browser QA: main agent.
+- Scope: React interface, styles, accessible editor behavior, synthetic fixtures, and documentation only.
+- Verification: 47 frontend tests, TypeScript typecheck, production build, Docker rebuild, and six synthetic Playwright captures across three viewports. Final Astra review found and main corrected question-only data loss and stale-editor browser-history routing.
+- Runtime model calls: zero.

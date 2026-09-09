@@ -1,0 +1,7 @@
+:root {
+ font-family:Cantarell,"Noto Sans",system-ui,sans-serif;font-size:14px;color:#293047;background:#f0f2f7;
+ --ink:#293047;--muted:#526471;--canvas:#f0f2f7;--surface:#fff;--chrome:#e7eaf2;
+ --plot:#f6f7fb;--action:#564a91;--selection:#ece8f5;--line:#cbd0de;--input-line:#6f8492;
+ --focus:#6b43b5;--success:#21654b;--warning:#875017;--danger:#a53242;--nav-width:184px;--page-padding:24px;
+}
+@media(min-width:1600px){:root{--nav-width:208px;--page-padding:32px}}
