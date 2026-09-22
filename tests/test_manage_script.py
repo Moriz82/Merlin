@@ -56,6 +56,18 @@ def test_workspace_directory_must_match_the_configured_runtime_identity():
     assert 'The workspace directory permissions changed. Stop and inspect the workspace.' in prepare
 
 
+def test_root_enrollment_streams_a_private_card_to_a_different_app_user():
+    script = (Path(__file__).parents[1] / 'manage.sh').read_text()
+    enroll = script.split('  enroll)', 1)[1].split('  ghostwriter)', 1)[0]
+    assert '[[ -f "$2" && ! -L "$2" ]]' in enroll
+    assert 'card_owner=$(stat -c \'%u\' "$card")' in enroll
+    assert '[[ "$card_owner" == "$(id -u)" ]]' in enroll
+    assert 'runtime_user=$(runtime_identity)' in enroll
+    assert 'cat -- "$card" | compose run --rm --no-deps -T app' in enroll
+    assert 'enroll /dev/stdin --fingerprint "$3"' in enroll
+    assert 'no plaintext staging file is created' in enroll
+
+
 def test_backup_uses_storage_identity_in_a_networkless_container():
     script = (Path(__file__).parents[1] / 'manage.sh').read_text()
     backup = script.split('  backup)', 1)[1].split('  restore)', 1)[0]
@@ -90,3 +102,19 @@ def test_restore_uses_runtime_identity_and_atomic_staging():
     assert 'mark_encrypted_path "$stage"' in restore
     assert 'unlink -- "$stage/.storage-verified.json"' in restore
     assert '?mode=ro&immutable=1' in restore
+
+
+def test_compose_healthcheck_calls_the_session_endpoint_with_matching_tls_mode():
+    compose = (Path(__file__).parents[1] / 'compose.yaml').read_text()
+    assert "http.client.HTTPConnection" in compose
+    assert "http.client.HTTPSConnection" in compose
+    assert "os.environ.get('APP_TLS_CERT')" in compose
+    assert "ssl._create_unverified_context()" in compose
+    assert "workspace.db?mode=ro'" in compose
+    assert "client.request('GET', '/api/session', headers={'Host': origin.netloc})" in compose
+    assert 'assert response.status == 200' in compose
+
+
+def test_pytest_adds_the_repository_root_for_plain_pytest_invocations():
+    pyproject = (Path(__file__).parents[1] / 'pyproject.toml').read_text()
+    assert 'pythonpath = ["."]' in pyproject

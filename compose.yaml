@@ -32,7 +32,23 @@ services:
     init: true
     restart: "no"
     healthcheck:
-      test: ["CMD", "python", "-c", "import os,socket;s=socket.create_connection(('127.0.0.1',int(os.environ['APP_PORT'])),2);s.close()"]
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import http.client, json, os, sqlite3, ssl
+          from urllib.parse import urlsplit
+          db = sqlite3.connect('file:/state/workspace.db?mode=ro', uri=True)
+          row = db.execute("SELECT value FROM settings WHERE key='config'").fetchone()
+          db.close()
+          origin = urlsplit(json.loads(row[0])['origin'])
+          client = (http.client.HTTPSConnection('127.0.0.1', int(os.environ['APP_PORT']), context=ssl._create_unverified_context()) if os.environ.get('APP_TLS_CERT') else http.client.HTTPConnection('127.0.0.1', int(os.environ['APP_PORT'])))
+          client.request('GET', '/api/session', headers={'Host': origin.netloc})
+          response = client.getresponse()
+          assert response.status == 200
+          response.read()
+          client.close()
       interval: 5s
       timeout: 3s
       retries: 12

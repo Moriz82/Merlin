@@ -24,3 +24,4 @@ build-backend = "hatchling.build"
 packages = ["workspace"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]

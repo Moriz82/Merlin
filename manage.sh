@@ -138,8 +138,16 @@ case "${1:-help}" in
     need_docker; require_services_stopped; prepare_dirs
     [[ -f "$2" && ! -L "$2" ]] || fail 'Peer card must be a regular, non-symlink file.'
     card=$(realpath -- "$2")
-    [[ $(stat -c '%u' "$card") == "$(id -u)" ]] || fail 'Peer card must be owned by the current user.'
-    compose run --rm --no-deps -v "$card:/input/peer-card.json:ro" app python -m workspace.cli --workspace /state enroll /input/peer-card.json --fingerprint "$3"
+    card_owner=$(stat -c '%u' "$card")
+    [[ "$card_owner" == "$(id -u)" ]] || fail 'Peer card must be owned by the current user.'
+    runtime_user=$(runtime_identity)
+    if [[ $(id -u) == 0 && "$card_owner" == 0 && "$runtime_user" != "$(id -u):$(id -g)" ]]; then
+      # The app user cannot read a root-private bind mount. Stream the validated
+      # card through stdin so no plaintext staging file is created.
+      cat -- "$card" | compose run --rm --no-deps -T app python -m workspace.cli --workspace /state enroll /dev/stdin --fingerprint "$3"
+    else
+      compose run --rm --no-deps -v "$card:/input/peer-card.json:ro" app python -m workspace.cli --workspace /state enroll /input/peer-card.json --fingerprint "$3"
+    fi
     ;;
   ghostwriter)
     [[ $# -eq 5 || $# -eq 6 ]] || fail 'Usage: ./manage.sh ghostwriter ORIGIN REPORT-ID SEVERITY-ID FINDING-TYPE-ID [TOKEN-FILE]'
