@@ -89,4 +89,4 @@ Verify the receipt and keep the source workspace. Restore only when `state/` is 
 
 Start only after the engagement and instance identity are correct.
 
-The backup manifest records the size and SHA-256 checksum of every file. The backup seals its SQLite copy and does not keep WAL sidecars. Restore opens the source in immutable mode and rechecks each staged copy before it publishes the new workspace.
+The backup command mounts the stopped source workspace read-only. It reads committed WAL data when clean shutdown leaves SQLite sidecars. It does not change the source bytes. The backup manifest records the size and SHA-256 checksum of every file. The backup seals its SQLite copy and does not keep WAL sidecars. Restore opens the source in immutable mode and rechecks each staged copy before it publishes the new workspace.

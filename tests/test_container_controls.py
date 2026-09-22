@@ -308,6 +308,21 @@ def test_backup_seals_database_without_sqlite_sidecars(tmp_path):
     assert not (destination / 'workspace.db-shm').exists()
 
 
+def test_default_readonly_store_still_rejects_sqlite_sidecars(tmp_path):
+    store = initialize(tmp_path / 'state', 'http://127.0.0.1:8710', 'Synthetic')
+    (store.root / 'workspace.db-wal').touch(mode=0o600)
+    with pytest.raises(RuntimeError, match='sidecar'):
+        Store(store.root, readonly=True)
+
+
+def test_wal_aware_readonly_store_rejects_unsafe_sidecars(tmp_path):
+    store = initialize(tmp_path / 'state', 'http://127.0.0.1:8710', 'Synthetic')
+    external = tmp_path / 'external'; external.write_bytes(b'synthetic')
+    (store.root / 'workspace.db-wal').symlink_to(external)
+    with pytest.raises(RuntimeError, match='permissions'):
+        Store(store.root, readonly=True, wal_aware_readonly=True)
+
+
 def test_restore_reads_backup_identity_with_immutable_sqlite_uri(tmp_path, monkeypatch):
     store = initialize(tmp_path / 'state', 'http://127.0.0.1:8710', 'Synthetic')
     source = tmp_path / 'backup'

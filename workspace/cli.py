@@ -381,7 +381,11 @@ def main():
             print(canonical({'status': 'initialized', 'engagement': config['engagement'], 'instance_id': config['instance_id']})); return
         if args.command == 'restore':
             print(canonical(restore(args.source, args.workspace))); return
-        store = Store(args.workspace, readonly=args.command == 'backup')
+        store = Store(
+            args.workspace,
+            readonly=args.command == 'backup',
+            wal_aware_readonly=args.command == 'backup',
+        )
         if not store.setting('config'):
             raise ValueError('Initialize this workspace first')
         if args.command == 'add-user':

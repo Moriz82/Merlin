@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import sqlite3
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -13,7 +14,7 @@ from fastapi.testclient import TestClient
 from workspace import APP_NAME
 from workspace.cli import initialize, backup, restore
 from workspace.auth import add_user
-from workspace.store import Store, Conflict, digest
+from workspace.store import Store, Conflict, canonical, digest
 from workspace.server import create_app
 from workspace.parsers import parse, archive
 from workspace.transfer import enroll, peer_http_headers, provision_keys, public_card
@@ -127,6 +128,32 @@ def test_readonly_store_backup_preserves_every_source_file(store, tmp_path):
     assert after == before
     with pytest.raises(RuntimeError, match='read-only'):
         readonly.configure('blocked', True)
+
+
+def test_wal_aware_readonly_backup_preserves_live_sidecars_and_committed_data(store, tmp_path):
+    reader = sqlite3.connect(store.path)
+    try:
+        reader.execute('BEGIN')
+        reader.execute('SELECT COUNT(*) FROM settings').fetchone()
+        with sqlite3.connect(store.path) as writer:
+            writer.execute('PRAGMA wal_autocheckpoint=0')
+            writer.execute('INSERT INTO settings(key,value) VALUES(?,?)', ('wal-fixture', canonical({'present': True})))
+        assert (store.root / 'workspace.db-wal').stat().st_size > 0
+        before = {
+            str(path.relative_to(store.root)): path.read_bytes()
+            for path in store.root.rglob('*') if path.is_file() and path.name != 'workspace.db-shm'
+        }
+        readonly = Store(store.root, readonly=True, wal_aware_readonly=True)
+        backup(readonly, tmp_path / 'wal-backup')
+        after = {
+            str(path.relative_to(store.root)): path.read_bytes()
+            for path in store.root.rglob('*') if path.is_file() and path.name != 'workspace.db-shm'
+        }
+        assert after == before
+        copied = Store(tmp_path / 'wal-backup', readonly=True)
+        assert copied.setting('wal-fixture') == {'present': True}
+    finally:
+        reader.close()
 
 
 def test_restore_verifies_manifest_and_preserves_history(store, tmp_path):

@@ -56,9 +56,12 @@ class ClosingConnection(sqlite3.Connection):
 
 
 class Store:
-    def __init__(self, root, readonly=False):
+    def __init__(self, root, readonly=False, wal_aware_readonly=False):
         self.root = Path(root).absolute()
         self.readonly = bool(readonly)
+        self.wal_aware_readonly = bool(wal_aware_readonly)
+        if self.wal_aware_readonly and not self.readonly:
+            raise ValueError('WAL-aware access is read-only')
         if not self.readonly:
             self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         private(self.root, True)
@@ -74,8 +77,15 @@ class Store:
             fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             os.close(fd)
         private(self.path)
-        if self.readonly and any(self.path.with_name(self.path.name + suffix).exists() for suffix in ('-wal', '-shm')):
+        sidecars = [self.path.with_name(self.path.name + suffix) for suffix in ('-wal', '-shm')]
+        if self.readonly and not self.wal_aware_readonly and any(path.exists() for path in sidecars):
             raise RuntimeError('The workspace still has SQLite sidecar files. Stop the service cleanly before backup.')
+        if self.wal_aware_readonly:
+            for path in sidecars:
+                if path.exists() or path.is_symlink():
+                    private(path)
+                    if not path.is_file():
+                        raise RuntimeError('SQLite sidecar storage is not a private regular file')
         if not self.readonly:
             with self.connect() as c:
                 c.executescript('''
@@ -105,7 +115,8 @@ class Store:
 
     def connect(self):
         if self.readonly:
-            c = sqlite3.connect(f'file:{self.path}?mode=ro&immutable=1', uri=True, timeout=5, factory=ClosingConnection)
+            parameters = 'mode=ro' if self.wal_aware_readonly else 'mode=ro&immutable=1'
+            c = sqlite3.connect(f'file:{self.path}?{parameters}', uri=True, timeout=5, factory=ClosingConnection)
         else:
             c = sqlite3.connect(self.path, timeout=5, factory=ClosingConnection)
         c.row_factory = sqlite3.Row
