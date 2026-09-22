@@ -1,0 +1,611 @@
+{
+  "app": "Merlin",
+  "origin": "http://127.0.0.1:8711",
+  "captured_at_utc": "2026-09-22T07:35:14.705061+00:00",
+  "fixture": "synthetic-browser-v1",
+  "playwright": "1.62.0",
+  "runner_sha256": "6bf9e74a9015e1128cd787df069e739cecde2f36459a2808f316aa11d6427cc2",
+  "served_asset_sha256": {
+    "/assets/index-C--48esO.js": "2476662c99d035184b4add36af4c8e9fa9592dfb5c4b56ab8c4e526c4b2ba1d1",
+    "/assets/index-BwKzWPDu.css": "77946264465e88b54693d30e3a7c2c739fcf220d2db27bea7f7f2e2b53cb84a1"
+  },
+  "scope": "Real browser and real served built assets; all API/session/login data use synthetic local fixture contracts. Native SSE fixture connection is deliberately closed. No live backend writes or credentials.",
+  "limitations": [
+    "683x384 is a compact reflow proxy only; actual 200 percent browser zoom requires manual acceptance.",
+    "Accessibility tree, focus, roles and names are automated; actual screen-reader output and usability require manual acceptance.",
+    "Synthetic login does not prove live authentication; backend behavior requires separate integration tests."
+  ],
+  "chromium": "152.0.7977.75",
+  "live_unauthenticated_screen": "passed; real session request renders login form, no credentials submitted",
+  "cases": [
+    {
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "screenshots": [
+        {
+          "file": "merlin-home-1366x768.png",
+          "sha256": "c3ff84ef6f72be2d50c7cc56d6352abc519eb83763da2209d87d71f8c05400bb",
+          "application": "Merlin",
+          "route": "/inbox",
+          "viewport": {
+            "width": 1366,
+            "height": 768
+          },
+          "image_dimensions": {
+            "width": 1366,
+            "height": 768
+          },
+          "role": "lead_scribe",
+          "fixture": "synthetic-browser-v1",
+          "operator": "automated Chromium acceptance",
+          "captured_at_utc": "2026-09-22T07:35:16.825716+00:00",
+          "full_page": false,
+          "browser_zoom": "default; no zoom command applied"
+        },
+        {
+          "file": "merlin-editor-1366x768.png",
+          "sha256": "070ab4d7c58b163e41bf66bac3576c9fc095af92789744422c3977a92944fe2b",
+          "application": "Merlin",
+          "route": "/drafts",
+          "viewport": {
+            "width": 1366,
+            "height": 768
+          },
+          "image_dimensions": {
+            "width": 1366,
+            "height": 768
+          },
+          "role": "lead_scribe",
+          "fixture": "synthetic-browser-v1",
+          "operator": "automated Chromium acceptance",
+          "captured_at_utc": "2026-09-22T07:35:17.422158+00:00",
+          "full_page": false,
+          "browser_zoom": "default; no zoom command applied"
+        },
+        {
+          "file": "merlin-offline-1366x768.png",
+          "sha256": "718eea1d87caa70d798f33c30be930fe1beda98306541145cf57edc72db9fb14",
+          "application": "Merlin",
+          "route": "/drafts",
+          "viewport": {
+            "width": 1366,
+            "height": 768
+          },
+          "image_dimensions": {
+            "width": 1366,
+            "height": 768
+          },
+          "role": "lead_scribe",
+          "fixture": "synthetic-browser-v1",
+          "operator": "automated Chromium acceptance",
+          "captured_at_utc": "2026-09-22T07:35:18.818116+00:00",
+          "full_page": false,
+          "browser_zoom": "default; no zoom command applied"
+        }
+      ],
+      "routes": {
+        "Inbox": {
+          "layout": {
+            "width": 1366,
+            "height": 768,
+            "documentWidth": 1366,
+            "bodyWidth": 1366,
+            "overflow": false
+          },
+          "accessibility": {
+            "named_controls": 11,
+            "unnamed_controls": [],
+            "main_landmarks": 1,
+            "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+          }
+        },
+        "Drafts": {
+          "layout": {
+            "width": 1366,
+            "height": 768,
+            "documentWidth": 1366,
+            "bodyWidth": 1366,
+            "overflow": false
+          },
+          "accessibility": {
+            "named_controls": 12,
+            "unnamed_controls": [],
+            "main_landmarks": 1,
+            "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+          }
+        },
+        "Evidence": {
+          "layout": {
+            "width": 1366,
+            "height": 768,
+            "documentWidth": 1366,
+            "bodyWidth": 1366,
+            "overflow": false
+          },
+          "accessibility": {
+            "named_controls": 8,
+            "unnamed_controls": [],
+            "main_landmarks": 1,
+            "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+          }
+        },
+        "Transfer": {
+          "layout": {
+            "width": 1366,
+            "height": 768,
+            "documentWidth": 1366,
+            "bodyWidth": 1366,
+            "overflow": false
+          },
+          "accessibility": {
+            "named_controls": 14,
+            "unnamed_controls": [],
+            "main_landmarks": 1,
+            "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+          }
+        }
+      },
+      "login_layout": {
+        "width": 1366,
+        "height": 768,
+        "documentWidth": 1366,
+        "bodyWidth": 1366,
+        "overflow": false
+      },
+      "synthetic_login": "passed; browser form and fixture contract only",
+      "keyboard_skip": {
+        "first_tab": true,
+        "main_focus": true,
+        "focus_style": {
+          "style": "solid",
+          "width": "3px",
+          "visible": true
+        }
+      },
+      "reduced_motion": {
+        "matched": true,
+        "activeAnimations": 0,
+        "nonzeroTransitions": 0
+      },
+      "unsafe_markdown": {
+        "html_omitted": true,
+        "unsafe_links_omitted": 2,
+        "remote_image_omitted": true,
+        "external_requests": 0
+      },
+      "editor_layout": {
+        "width": 1366,
+        "height": 768,
+        "documentWidth": 1366,
+        "bodyWidth": 1366,
+        "overflow": false
+      },
+      "editor_accessibility": {
+        "named_controls": 34,
+        "unnamed_controls": [],
+        "main_landmarks": 1,
+        "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+      },
+      "dialog": {
+        "initial_focus": true,
+        "tab_wrap": true,
+        "escape": true,
+        "focus_restored": true
+      },
+      "connection_loss": {
+        "native_eventsource_stream_closed": true,
+        "banner": "Connection lost. Unsaved text remains in memory. Server writes are disabled. Last sync: 2026-09-22T07:35:16.034Z.",
+        "write_control_disabled": true,
+        "local_text_retained": true,
+        "no_offline_write": true
+      },
+      "offline_layout": {
+        "width": 1366,
+        "height": 768,
+        "documentWidth": 1366,
+        "bodyWidth": 1366,
+        "overflow": false
+      },
+      "browser_errors": [],
+      "failed_requests": [],
+      "http_errors": [],
+      "unexpected_fixture_routes": [],
+      "status": "passed"
+    },
+    {
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "screenshots": [
+        {
+          "file": "merlin-home-1920x1080.png",
+          "sha256": "82f8bb5913fa2b14c09116a3d96070e1e131b0ca66b4df2f20569e42683572fa",
+          "application": "Merlin",
+          "route": "/inbox",
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "image_dimensions": {
+            "width": 1920,
+            "height": 1080
+          },
+          "role": "lead_scribe",
+          "fixture": "synthetic-browser-v1",
+          "operator": "automated Chromium acceptance",
+          "captured_at_utc": "2026-09-22T07:35:20.556266+00:00",
+          "full_page": false,
+          "browser_zoom": "default; no zoom command applied"
+        },
+        {
+          "file": "merlin-editor-1920x1080.png",
+          "sha256": "6e26a6a7549e7073a9c0a2da06043343a8fa3925cf98349b23246a80010fa263",
+          "application": "Merlin",
+          "route": "/drafts",
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "image_dimensions": {
+            "width": 1920,
+            "height": 1080
+          },
+          "role": "lead_scribe",
+          "fixture": "synthetic-browser-v1",
+          "operator": "automated Chromium acceptance",
+          "captured_at_utc": "2026-09-22T07:35:20.978359+00:00",
+          "full_page": false,
+          "browser_zoom": "default; no zoom command applied"
+        },
+        {
+          "file": "merlin-offline-1920x1080.png",
+          "sha256": "73bda18b9412d27448662c7a3012bdc93537049518c14fd27216e14ced33b0b2",
+          "application": "Merlin",
+          "route": "/drafts",
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "image_dimensions": {
+            "width": 1920,
+            "height": 1080
+          },
+          "role": "lead_scribe",
+          "fixture": "synthetic-browser-v1",
+          "operator": "automated Chromium acceptance",
+          "captured_at_utc": "2026-09-22T07:35:22.345804+00:00",
+          "full_page": false,
+          "browser_zoom": "default; no zoom command applied"
+        }
+      ],
+      "routes": {
+        "Inbox": {
+          "layout": {
+            "width": 1920,
+            "height": 1080,
+            "documentWidth": 1920,
+            "bodyWidth": 1920,
+            "overflow": false
+          },
+          "accessibility": {
+            "named_controls": 11,
+            "unnamed_controls": [],
+            "main_landmarks": 1,
+            "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+          }
+        },
+        "Drafts": {
+          "layout": {
+            "width": 1920,
+            "height": 1080,
+            "documentWidth": 1920,
+            "bodyWidth": 1920,
+            "overflow": false
+          },
+          "accessibility": {
+            "named_controls": 12,
+            "unnamed_controls": [],
+            "main_landmarks": 1,
+            "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+          }
+        },
+        "Evidence": {
+          "layout": {
+            "width": 1920,
+            "height": 1080,
+            "documentWidth": 1920,
+            "bodyWidth": 1920,
+            "overflow": false
+          },
+          "accessibility": {
+            "named_controls": 8,
+            "unnamed_controls": [],
+            "main_landmarks": 1,
+            "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+          }
+        },
+        "Transfer": {
+          "layout": {
+            "width": 1920,
+            "height": 1080,
+            "documentWidth": 1920,
+            "bodyWidth": 1920,
+            "overflow": false
+          },
+          "accessibility": {
+            "named_controls": 14,
+            "unnamed_controls": [],
+            "main_landmarks": 1,
+            "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+          }
+        }
+      },
+      "login_layout": {
+        "width": 1920,
+        "height": 1080,
+        "documentWidth": 1920,
+        "bodyWidth": 1920,
+        "overflow": false
+      },
+      "synthetic_login": "passed; browser form and fixture contract only",
+      "keyboard_skip": {
+        "first_tab": true,
+        "main_focus": true,
+        "focus_style": {
+          "style": "solid",
+          "width": "3px",
+          "visible": true
+        }
+      },
+      "reduced_motion": {
+        "matched": true,
+        "activeAnimations": 0,
+        "nonzeroTransitions": 0
+      },
+      "unsafe_markdown": {
+        "html_omitted": true,
+        "unsafe_links_omitted": 2,
+        "remote_image_omitted": true,
+        "external_requests": 0
+      },
+      "editor_layout": {
+        "width": 1920,
+        "height": 1080,
+        "documentWidth": 1920,
+        "bodyWidth": 1920,
+        "overflow": false
+      },
+      "editor_accessibility": {
+        "named_controls": 34,
+        "unnamed_controls": [],
+        "main_landmarks": 1,
+        "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+      },
+      "dialog": {
+        "initial_focus": true,
+        "tab_wrap": true,
+        "escape": true,
+        "focus_restored": true
+      },
+      "connection_loss": {
+        "native_eventsource_stream_closed": true,
+        "banner": "Connection lost. Unsaved text remains in memory. Server writes are disabled. Last sync: 2026-09-22T07:35:19.425Z.",
+        "write_control_disabled": true,
+        "local_text_retained": true,
+        "no_offline_write": true
+      },
+      "offline_layout": {
+        "width": 1920,
+        "height": 1080,
+        "documentWidth": 1920,
+        "bodyWidth": 1920,
+        "overflow": false
+      },
+      "browser_errors": [],
+      "failed_requests": [],
+      "http_errors": [],
+      "unexpected_fixture_routes": [],
+      "status": "passed"
+    },
+    {
+      "viewport": {
+        "width": 683,
+        "height": 384
+      },
+      "screenshots": [
+        {
+          "file": "merlin-home-683x384.png",
+          "sha256": "111b7a10849e4e1e8f32b945763097eabfe2527087ef523682f0a5e7a1411379",
+          "application": "Merlin",
+          "route": "/inbox",
+          "viewport": {
+            "width": 683,
+            "height": 384
+          },
+          "image_dimensions": {
+            "width": 683,
+            "height": 384
+          },
+          "role": "lead_scribe",
+          "fixture": "synthetic-browser-v1",
+          "operator": "automated Chromium acceptance",
+          "captured_at_utc": "2026-09-22T07:35:23.414760+00:00",
+          "full_page": false,
+          "browser_zoom": "default; no zoom command applied"
+        },
+        {
+          "file": "merlin-editor-683x384.png",
+          "sha256": "2949964f3d9207afd8930cb00a3d42777bfda5c643ce31646a5e18c77cbeef35",
+          "application": "Merlin",
+          "route": "/drafts",
+          "viewport": {
+            "width": 683,
+            "height": 384
+          },
+          "image_dimensions": {
+            "width": 683,
+            "height": 384
+          },
+          "role": "lead_scribe",
+          "fixture": "synthetic-browser-v1",
+          "operator": "automated Chromium acceptance",
+          "captured_at_utc": "2026-09-22T07:35:23.713934+00:00",
+          "full_page": false,
+          "browser_zoom": "default; no zoom command applied"
+        },
+        {
+          "file": "merlin-offline-683x384.png",
+          "sha256": "9d4d26d0a4557ccec562c62cfd04d7ce5617ed3543c7b299c808e090c8ccbe3c",
+          "application": "Merlin",
+          "route": "/drafts",
+          "viewport": {
+            "width": 683,
+            "height": 384
+          },
+          "image_dimensions": {
+            "width": 683,
+            "height": 384
+          },
+          "role": "lead_scribe",
+          "fixture": "synthetic-browser-v1",
+          "operator": "automated Chromium acceptance",
+          "captured_at_utc": "2026-09-22T07:35:25.033036+00:00",
+          "full_page": false,
+          "browser_zoom": "default; no zoom command applied"
+        }
+      ],
+      "routes": {
+        "Inbox": {
+          "layout": {
+            "width": 683,
+            "height": 384,
+            "documentWidth": 683,
+            "bodyWidth": 683,
+            "overflow": false
+          },
+          "accessibility": {
+            "named_controls": 11,
+            "unnamed_controls": [],
+            "main_landmarks": 1,
+            "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+          }
+        },
+        "Drafts": {
+          "layout": {
+            "width": 683,
+            "height": 384,
+            "documentWidth": 683,
+            "bodyWidth": 683,
+            "overflow": false
+          },
+          "accessibility": {
+            "named_controls": 12,
+            "unnamed_controls": [],
+            "main_landmarks": 1,
+            "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+          }
+        },
+        "Evidence": {
+          "layout": {
+            "width": 683,
+            "height": 384,
+            "documentWidth": 683,
+            "bodyWidth": 683,
+            "overflow": false
+          },
+          "accessibility": {
+            "named_controls": 8,
+            "unnamed_controls": [],
+            "main_landmarks": 1,
+            "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+          }
+        },
+        "Transfer": {
+          "layout": {
+            "width": 683,
+            "height": 384,
+            "documentWidth": 683,
+            "bodyWidth": 683,
+            "overflow": false
+          },
+          "accessibility": {
+            "named_controls": 14,
+            "unnamed_controls": [],
+            "main_landmarks": 1,
+            "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+          }
+        }
+      },
+      "login_layout": {
+        "width": 683,
+        "height": 384,
+        "documentWidth": 683,
+        "bodyWidth": 683,
+        "overflow": false
+      },
+      "synthetic_login": "passed; browser form and fixture contract only",
+      "keyboard_skip": {
+        "first_tab": true,
+        "main_focus": true,
+        "focus_style": {
+          "style": "solid",
+          "width": "3px",
+          "visible": true
+        }
+      },
+      "reduced_motion": {
+        "matched": true,
+        "activeAnimations": 0,
+        "nonzeroTransitions": 0
+      },
+      "unsafe_markdown": {
+        "html_omitted": true,
+        "unsafe_links_omitted": 2,
+        "remote_image_omitted": true,
+        "external_requests": 0
+      },
+      "editor_layout": {
+        "width": 683,
+        "height": 384,
+        "documentWidth": 683,
+        "bodyWidth": 683,
+        "overflow": false
+      },
+      "editor_accessibility": {
+        "named_controls": 34,
+        "unnamed_controls": [],
+        "main_landmarks": 1,
+        "method": "Chromium accessibility tree; not screen-reader speech or usability proof"
+      },
+      "dialog": {
+        "initial_focus": true,
+        "tab_wrap": true,
+        "escape": true,
+        "focus_restored": true
+      },
+      "connection_loss": {
+        "native_eventsource_stream_closed": true,
+        "banner": "Connection lost. Unsaved text remains in memory. Server writes are disabled. Last sync: 2026-09-22T07:35:23.135Z.",
+        "write_control_disabled": true,
+        "local_text_retained": true,
+        "no_offline_write": true
+      },
+      "offline_layout": {
+        "width": 683,
+        "height": 384,
+        "documentWidth": 683,
+        "bodyWidth": 683,
+        "overflow": false
+      },
+      "browser_errors": [],
+      "failed_requests": [],
+      "http_errors": [],
+      "unexpected_fixture_routes": [],
+      "status": "passed"
+    }
+  ],
+  "status": "passed"
+}

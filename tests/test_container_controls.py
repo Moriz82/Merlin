@@ -656,6 +656,38 @@ def test_post_dispatch_persistence_failure_recovers_as_uncertain(client, store, 
 
 
 @pytest.mark.skipif(APP_NAME != 'Merlin', reason='Only Merlin dispatches Ghostwriter drafts')
+def test_ambiguous_ghostwriter_timeout_stays_uncertain_without_automatic_retry(client, store, monkeypatch):
+    from workspace.ghostwriter_adapter import ADAPTER
+
+    store = client.app.state.store
+    store.configure('ghostwriter', {
+        'origin': 'http://127.0.0.1:9999', 'report_id': '7', 'severity_id': 1,
+        'finding_type_id': 1, 'schema_hash': 'fixture-schema', 'adapter_id': ADAPTER,
+    })
+    install_ghostwriter_token(store)
+    draft = client.post('/api/records', json={'kind': 'draft', 'data': {
+        'title': 'Ambiguous timeout', 'description': 'Synthetic description', 'evidence_ids': [],
+    }}).json()
+    reviewed = review_delivery(client, draft).json()
+    attempts = []
+
+    def timeout(prepared):
+        attempts.append(True)
+        prepared[0].close()
+        raise httpx.ReadTimeout('synthetic ambiguous timeout')
+
+    monkeypatch.setattr('workspace.ghostwriter_adapter.execute_graphql', timeout)
+    uncertain = send_delivery(client, reviewed)
+    assert uncertain.status_code == 200
+    assert uncertain.json()['data']['status'] == 'uncertain'
+    assert attempts == [True]
+
+    repeated = send_delivery(client, uncertain.json())
+    assert repeated.status_code == 409
+    assert attempts == [True]
+
+
+@pytest.mark.skipif(APP_NAME != 'Merlin', reason='Only Merlin dispatches Ghostwriter drafts')
 def test_delivery_local_preflight_failure_does_not_enter_uncertain_state(client, store, monkeypatch):
     from workspace.ghostwriter_adapter import ADAPTER
     store = client.app.state.store

@@ -1,5 +1,15 @@
 # Synthetic rehearsal
 
+## Current validation
+
+Run date: 2026-09-22 UTC.
+
+Current source passed 191 backend tests, 47 frontend tests, TypeScript checks, and the production build. The same-host Docker rehearsal imported Harbinger's four-record closure and evidence, returned the original receipt on replay, rejected a stale draft save with 409, replayed SSE events, survived stop and restart, imported the encrypted fallback, rejected a tampered bundle, and preserved records and revisions through backup and restore.
+
+Current-source deployments on the two designated Kali VMs passed strict private-CA HTTPS in both directions, direct signed transfer, fallback import, dependency deduplication, lead read, draft persistence, backup, restore, integrity verification, and restart. Local Ghostwriter v7.2.6 accepted one reviewed synthetic text finding through adapter `ghostwriter-reportedFinding-v7.2.6-3`; application errors and ambiguous timeouts remained failures or uncertain states without automatic retry.
+
+The current browser run produced nine reviewed Merlin captures. See [BROWSER-QA.md](BROWSER-QA.md). Actual 200 percent zoom and screen-reader speech remain manual gates.
+
 Run date: 2026-09-09 UTC.
 
 The Docker rehearsals used synthetic records only.

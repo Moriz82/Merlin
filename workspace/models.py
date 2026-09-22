@@ -51,6 +51,7 @@ class MergeReview(Strict):
     upload_revision_id: str = Field(min_length=1, max_length=80)
     preview_revision_id: str = Field(min_length=1, max_length=80)
     preview_hash: str = Field(pattern=r'^[0-9a-f]{64}$')
+    acknowledged: bool = False
 
 
 class EvidenceApproval(Strict):

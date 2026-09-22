@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import ssl
 import subprocess
+import sys
 import uuid
 import zipfile
 import pytest
@@ -119,7 +120,7 @@ def conflict_review(store, conflict):
     }
 
 
-def rewrite_signed_bundle(encrypted, sender, receiver, mutate):
+def rewrite_signed_bundle(encrypted, sender, receiver, mutate, evidence=None):
     plain = subprocess.run(
         ['age', '-d', '-i', str(receiver.root / 'keys' / 'age.key')],
         input=encrypted, capture_output=True, check=True,
@@ -128,6 +129,8 @@ def rewrite_signed_bundle(encrypted, sender, receiver, mutate):
         entries = {info.filename: source.read(info.filename) for info in source.infolist()}
     signed = json.loads(entries['manifest.json'])
     mutate(signed['manifest'])
+    for artifact_id, body in (evidence or {}).items():
+        entries['evidence/' + artifact_id] = body
     key = Ed25519PrivateKey.from_private_bytes((sender.root / 'keys' / 'signing.key').read_bytes())
     signed['signature'] = base64.b64encode(key.sign(canonical(signed['manifest']).encode())).decode()
     entries['manifest.json'] = canonical(signed).encode()
@@ -731,6 +734,149 @@ def test_merged_upload_review_metadata_roundtrips_between_repositories(peers):
     assert receipt['status'] == 'imported'
     assert receiver.get(upload_id)['data']['merged_review'] == merged_review
     assert (receiver.root / 'artifacts' / upload_id).read_bytes() == body
+
+
+def test_pinned_harbinger_producer_fixture_is_accepted_without_sibling_checkout():
+    """Keep Harbinger's admitted producer shape covered in standalone Merlin clones."""
+    fixture = json.loads(
+        (Path(__file__).parent / 'fixtures' / 'harbinger-transfer-records-v1.json').read_text()
+    )
+    assert fixture['producer'] == 'Harbinger'
+    assert fixture['contract_sha256'] == transfer_module.CONTRACT_SHA256
+    assert fixture['schema_version'] == 1
+    assert fixture['records']
+    for record in fixture['records']:
+        uuid.UUID(record['id'])
+        uuid.UUID(record['revision_id'])
+        transfer_module.validate_record_data(record['kind'], record['data'])
+    upload = fixture['records'][0]['data']
+    artifact = fixture['artifact_text'].encode()
+    preview = fixture['preview_text'].encode()
+    assert upload['size'] == len(artifact)
+    assert upload['sha256'] == __import__('hashlib').sha256(artifact).hexdigest()
+    assert upload['merged_review']['preview_hash'] == __import__('hashlib').sha256(preview).hexdigest()
+    assert upload['artifact_class'] == 'ordinary_evidence'
+    assert upload['merged_review']['acknowledged'] is False
+
+
+@pytest.mark.skipif(
+    not (Path(__file__).resolve().parents[2] / 'Harbinger' / 'workspace' / 'harness_trust.py').is_file(),
+    reason='Harbinger source checkout is required for the cross-repository transfer contract test',
+)
+def test_live_sibling_harbinger_emitted_ordinary_artifact_roundtrips_to_merlin(tmp_path):
+    """Use Harbinger's source module to create the exact transfer Merlin imports."""
+    harbinger_root = Path(__file__).resolve().parents[2] / 'Harbinger'
+    engagement = str(uuid.uuid4())
+    receiver = initialize(tmp_path / 'merlin', 'http://127.0.0.1:8711', 'Synthetic', engagement_id=engagement)
+    provision_keys(receiver)
+    recipient_path = tmp_path / 'recipient.json'
+    sender_card_path = tmp_path / 'harbinger-card.json'
+    bundle_path = tmp_path / 'harbinger.age'
+    recipient_path.write_text(canonical(public_card(receiver)))
+    source = '''
+import hashlib
+import json
+import sys
+import uuid
+from pathlib import Path
+from workspace.cli import initialize
+from workspace.store import digest
+from workspace.transfer import build_bundle, enroll, provision_keys, public_card
+from workspace.harness_trust import ORDINARY_ARTIFACT
+
+state, recipient_path, sender_card_path, bundle_path = map(Path, sys.argv[1:])
+recipient = json.loads(recipient_path.read_text())
+store = initialize(state, "http://127.0.0.1:8710", "Synthetic", engagement_id=recipient["engagement_id"])
+provision_keys(store)
+enroll(store, recipient, digest(recipient))
+artifact_id = str(uuid.uuid4())
+body = b"synthetic ordinary Harbinger evidence\\n"
+(store.root / "artifacts" / artifact_id).write_bytes(body)
+(store.root / "artifacts" / artifact_id).chmod(0o600)
+with store.tx() as connection:
+    upload = store.put(connection, "upload", {
+        "filename": "harbinger-reviewed.json", "format": "manual_json", "status": "merged",
+        "sha256": hashlib.sha256(body).hexdigest(), "size": len(body),
+        "artifact_id": artifact_id, "artifact_class": ORDINARY_ARTIFACT,
+        "quarantined": False, "limitations": [], "reviewed_for_export": True,
+        "merged_review": {
+            "upload_revision_id": str(uuid.uuid4()),
+            "preview_revision_id": str(uuid.uuid4()),
+            "preview_hash": hashlib.sha256(b"synthetic preview").hexdigest(),
+            "acknowledged": False,
+        },
+    }, "fixture", artifact_id)
+    store.event(connection, "fixture", "upload.fixture_created", [artifact_id])
+bundle_path.write_bytes(build_bundle(store, [upload["id"]], recipient["id"], "host"))
+sender_card_path.write_text(json.dumps(public_card(store)))
+'''
+    subprocess.run(
+        [sys.executable, '-c', source, str(tmp_path / 'harbinger'), str(recipient_path), str(sender_card_path), str(bundle_path)],
+        cwd=harbinger_root, check=True, capture_output=True,
+    )
+    sender_card = json.loads(sender_card_path.read_text())
+    enroll(receiver, sender_card, digest(sender_card))
+    receipt = open_bundle(receiver, bundle_path.read_bytes(), 'scribe')
+
+    assert receipt['status'] == 'imported'
+    upload = receiver.records('upload')[0]
+    assert upload['data']['artifact_class'] == 'ordinary_evidence'
+    assert upload['data']['merged_review']['acknowledged'] is False
+    assert (receiver.root / 'artifacts' / upload['id']).read_bytes() == b'synthetic ordinary Harbinger evidence\n'
+
+
+@pytest.mark.parametrize('change, error', [
+    ({'artifact_class': 'restricted_harness_envelope'}, 'restricted'),
+    ({'format': 'harness_observation_v1', 'artifact_class': 'ordinary_evidence'}, 'restricted'),
+    ({'harness_trust': {'trusted': True}}, 'Harness trust metadata'),
+])
+def test_transfer_rejects_harness_upload_metadata(change, error):
+    data = {
+        'filename': 'fixture.json', 'format': 'manual_json', 'status': 'merged',
+        'sha256': 'a' * 64, 'size': 1, 'artifact_id': str(uuid.uuid4()),
+        'artifact_class': 'ordinary_evidence', 'quarantined': False,
+        'limitations': [], 'reviewed_for_export': True,
+    }
+    data.update(change)
+    with pytest.raises(ValueError, match=error):
+        transfer_module.validate_record_data('upload', data)
+
+
+def test_transfer_rejects_mislabeled_raw_harness_observation(peers):
+    sender, receiver = peers
+    upload_id = str(uuid.uuid4())
+    body = b'synthetic ordinary evidence\n'
+    (sender.root / 'artifacts' / upload_id).write_bytes(body)
+    (sender.root / 'artifacts' / upload_id).chmod(0o600)
+    import hashlib
+    with sender.tx() as connection:
+        upload = sender.put(connection, 'upload', {
+            'filename': 'mislabeled.json', 'format': 'manual_json', 'status': 'merged',
+            'sha256': hashlib.sha256(body).hexdigest(), 'size': len(body),
+            'artifact_id': upload_id, 'artifact_class': 'ordinary_evidence',
+            'quarantined': False, 'limitations': [], 'reviewed_for_export': True,
+        }, 'fixture', upload_id)
+        sender.event(connection, 'fixture', 'upload.fixture_created', [upload_id])
+
+    encrypted = build_bundle(sender, [upload['id']], receiver.setting('config')['instance_id'], 'host')
+    harness_raw = b'{"kind":"harness_observation_v1","synthetic":true}'
+
+    def replace_with_harness_original(manifest):
+        record = next(item for item in manifest['records'] if item['id'] == upload_id)
+        record['data']['sha256'] = hashlib.sha256(harness_raw).hexdigest()
+        record['data']['size'] = len(harness_raw)
+        file = next(item for item in manifest['files'] if item['id'] == upload_id)
+        file['sha256'] = hashlib.sha256(harness_raw).hexdigest()
+        file['size'] = len(harness_raw)
+
+    malicious = rewrite_signed_bundle(
+        encrypted, sender, receiver, replace_with_harness_original,
+        {upload_id: harness_raw},
+    )
+    with pytest.raises(ValueError, match='signed harness original is restricted'):
+        open_bundle(receiver, malicious, 'scribe')
+    assert receiver.get(upload_id) is None
+    assert not list((receiver.root / 'artifacts').iterdir())
 
 
 @pytest.mark.parametrize('failure_site', ('put', 'event', 'commit'))

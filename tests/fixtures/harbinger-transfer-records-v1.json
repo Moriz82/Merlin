@@ -1,0 +1,32 @@
+{
+  "artifact_text": "synthetic ordinary Harbinger evidence\n",
+  "contract_sha256": "a6bffbdee78c3adc748ac1c3b430878e47f1d8506e3683cf3f11c9ec9d3ecb93",
+  "preview_text": "synthetic preview",
+  "producer": "Harbinger",
+  "records": [
+    {
+      "data": {
+        "artifact_class": "ordinary_evidence",
+        "artifact_id": "10000000-0000-4000-8000-000000000001",
+        "filename": "synthetic-reviewed.json",
+        "format": "manual_json",
+        "limitations": [],
+        "merged_review": {
+          "acknowledged": false,
+          "preview_hash": "46224ef99027389850cc53a11d68977f729bb130dfe0d0acd6a3b1824c2acb81",
+          "preview_revision_id": "10000000-0000-4000-8000-000000000002",
+          "upload_revision_id": "10000000-0000-4000-8000-000000000003"
+        },
+        "quarantined": false,
+        "reviewed_for_export": true,
+        "sha256": "d33a06246be316d9bcbb0ebdd91c683910809a96c9f40d2c0e65c5b3338d5acf",
+        "size": 38,
+        "status": "merged"
+      },
+      "id": "10000000-0000-4000-8000-000000000001",
+      "kind": "upload",
+      "revision_id": "10000000-0000-4000-8000-000000000004"
+    }
+  ],
+  "schema_version": 1
+}

@@ -35,10 +35,26 @@ ORIGIN_KINDS = {
     'Harbinger': {'asset', 'relationship', 'observation', 'finding', 'lead', 'upload', 'comment'},
     'Merlin': {'draft', 'question', 'comment'},
 }
+ORDINARY_ARTIFACT = 'ordinary_evidence'
+RESTRICTED_HARNESS_ARTIFACT = 'restricted_harness_envelope'
+HARNESS_OBSERVATION_FORMAT = 'harness_observation_v1'
+HARNESS_KIND_MARKER = b'harness_observation_v1'
+HARNESS_KIND_PATTERN = re.compile(
+    b''.join(
+        b'(?:' + re.escape(bytes((character,))) + b'|\\\\u' + f'{character:04x}'.encode('ascii') + b')'
+        for character in HARNESS_KIND_MARKER
+    ),
+    re.IGNORECASE,
+)
 
 
 class ReviewMismatch(Exception):
     """The records or enrolled recipient changed after operator review."""
+
+
+def restricted_harness_original(raw):
+    """Conservatively identify a signed harness original without importing harness code."""
+    return isinstance(raw, (bytes, bytearray, memoryview)) and bool(HARNESS_KIND_PATTERN.search(bytes(raw)))
 
 
 def peer_tls_context():
@@ -109,7 +125,12 @@ def validate_record_data(kind, data):
     elif kind == 'draft':
         Draft.model_validate({key: value for key, value in data.items() if key not in PROVENANCE})
     elif kind == 'upload':
-        _shape(data, {'filename', 'format', 'status', 'sha256', 'size', 'artifact_id', 'quarantined', 'limitations'}, {'reviewed_for_export', 'merged_review'})
+        _shape(data, {'filename', 'format', 'status', 'sha256', 'size', 'artifact_id', 'quarantined', 'limitations'}, {'reviewed_for_export', 'merged_review', 'harness_trust', 'artifact_class'})
+        artifact_class = data.get('artifact_class', RESTRICTED_HARNESS_ARTIFACT if data.get('format') == HARNESS_OBSERVATION_FORMAT else ORDINARY_ARTIFACT)
+        if artifact_class not in {ORDINARY_ARTIFACT, RESTRICTED_HARNESS_ARTIFACT}:
+            raise ValueError('Invalid artifact classification')
+        if artifact_class == RESTRICTED_HARNESS_ARTIFACT or data.get('format') == HARNESS_OBSERVATION_FORMAT:
+            raise ValueError('The signed harness original is restricted and cannot enter a transfer bundle')
         if not isinstance(data['filename'], str) or not 0 < len(data['filename']) <= 200 or data['format'] not in FORMATS or data['status'] not in {'preview', 'merged'}:
             raise ValueError('Invalid transferable upload state')
         if not isinstance(data['sha256'], str) or not re.fullmatch(r'[0-9a-f]{64}', data['sha256']) or type(data['size']) is not int or not 0 <= data['size'] <= MAX_BUNDLE:
@@ -117,6 +138,8 @@ def validate_record_data(kind, data):
         _uuid(data['artifact_id'], 'artifact_id')
         if 'merged_review' in data:
             MergeReview.model_validate(data['merged_review'])
+        if 'harness_trust' in data:
+            raise ValueError('Harness trust metadata cannot be attached to transferable raw evidence')
         if data['quarantined'] is not False or data.get('reviewed_for_export') is not True or not isinstance(data['limitations'], list) or any(not isinstance(item, str) or len(item) > 4096 for item in data['limitations']):
             raise ValueError('Upload was not admitted for transfer')
     elif kind == 'question':
@@ -437,6 +460,8 @@ def _transfer_snapshot(store, ids, recipient_id, connection):
             raw = path.read_bytes()
             if hashlib.sha256(raw).hexdigest() != d['sha256'] or secret_bearing(raw):
                 raise ValueError('Artifact changed or requires secret review')
+            if restricted_harness_original(raw):
+                raise ValueError('The signed harness original is restricted and cannot enter a transfer bundle')
             files[id] = raw
     ordered_records = [records[id] for id in sorted(records)]
     file_manifest = [
@@ -719,6 +744,8 @@ def open_bundle(store, encrypted, actor, *, inspect_only=False):
             body = z.read('evidence/' + id)
             if len(body) != f['size'] or hashlib.sha256(body).hexdigest() != f['sha256'] or secret_bearing(body):
                 raise ValueError('Evidence failed integrity or secret review')
+            if restricted_harness_original(body):
+                raise ValueError('The signed harness original is restricted and cannot enter a transfer bundle')
             contents[id] = body
         ids = set()
         for r in m['records']:
