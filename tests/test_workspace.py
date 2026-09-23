@@ -156,6 +156,29 @@ def test_wal_aware_readonly_backup_preserves_live_sidecars_and_committed_data(st
         reader.close()
 
 
+def test_wal_aware_readonly_backup_without_sidecars_uses_immutable_database(store, tmp_path, monkeypatch):
+    assert not (store.root / 'workspace.db-wal').exists()
+    assert not (store.root / 'workspace.db-shm').exists()
+    real_connect = sqlite3.connect
+    source_uris = []
+
+    def track_connect(database, *args, **kwargs):
+        if str(database).startswith(f'file:{store.path}?'):
+            source_uris.append(str(database))
+        return real_connect(database, *args, **kwargs)
+
+    monkeypatch.setattr(sqlite3, 'connect', track_connect)
+    store.root.chmod(0o500)
+    try:
+        readonly = Store(store.root, readonly=True, wal_aware_readonly=True)
+        backup(readonly, tmp_path / 'no-sidecar-backup')
+    finally:
+        store.root.chmod(0o700)
+    assert source_uris and all('mode=ro&immutable=1' in uri for uri in source_uris)
+    assert not (store.root / 'workspace.db-wal').exists()
+    assert not (store.root / 'workspace.db-shm').exists()
+
+
 def test_restore_verifies_manifest_and_preserves_history(store, tmp_path):
     with store.tx() as connection:
         item = store.put(connection, 'draft', {'title': 'Restore fixture'}, 'fixture')

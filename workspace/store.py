@@ -78,7 +78,8 @@ class Store:
             os.close(fd)
         private(self.path)
         sidecars = [self.path.with_name(self.path.name + suffix) for suffix in ('-wal', '-shm')]
-        if self.readonly and not self.wal_aware_readonly and any(path.exists() for path in sidecars):
+        self._wal_sidecars_present = any(path.exists() or path.is_symlink() for path in sidecars)
+        if self.readonly and not self.wal_aware_readonly and self._wal_sidecars_present:
             raise RuntimeError('The workspace still has SQLite sidecar files. Stop the service cleanly before backup.')
         if self.wal_aware_readonly:
             for path in sidecars:
@@ -115,7 +116,7 @@ class Store:
 
     def connect(self):
         if self.readonly:
-            parameters = 'mode=ro' if self.wal_aware_readonly else 'mode=ro&immutable=1'
+            parameters = 'mode=ro' if self.wal_aware_readonly and self._wal_sidecars_present else 'mode=ro&immutable=1'
             c = sqlite3.connect(f'file:{self.path}?{parameters}', uri=True, timeout=5, factory=ClosingConnection)
         else:
             c = sqlite3.connect(self.path, timeout=5, factory=ClosingConnection)
