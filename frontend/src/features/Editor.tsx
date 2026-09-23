@@ -76,16 +76,54 @@ function DraftEditor({
   const [saving, setSaving] = useState(false);
   const [evidence, setEvidence] = useState<RecordItem[]>([]);
   const [evidenceError, setEvidenceError] = useState<unknown>(null);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
+  const [hasMoreEvidence, setHasMoreEvidence] = useState(false);
+  const evidenceRequest = useRef(0);
+  const evidenceBusy = useRef(false);
+  const evidenceOffset = useRef(0);
   const savingRef = useRef(false);
   const blocked = useRef(false);
   const saveRequested = useRef(false);
   const timer = useRef<number | null>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const selectedEvidenceIds = Array.isArray(draft.evidence_ids) ? draft.evidence_ids.filter((id): id is string => typeof id === "string") : [];
+  async function loadEvidencePage(reset = false) {
+    if (reset) {
+      evidenceRequest.current++;
+      evidenceBusy.current = false;
+      evidenceOffset.current = 0;
+      setEvidence([]);
+      setHasMoreEvidence(false);
+    }
+    if (evidenceBusy.current) return;
+    const generation = evidenceRequest.current;
+    const offset = evidenceOffset.current;
+    evidenceBusy.current = true;
+    setEvidenceLoading(true);
+    setEvidenceError(null);
+    try {
+      const result = await api.get<{ items?: RecordItem[]; total?: number }>(offset ? `/api/evidence?limit=100&offset=${offset}` : "/api/evidence");
+      if (generation !== evidenceRequest.current) return;
+      const page = Array.isArray(result.items) ? result.items : [];
+      evidenceOffset.current = offset + page.length;
+      setEvidence(current => {
+        const ids = new Set(current.map(item => item.id));
+        return [...current, ...page.filter(item => {
+          if (ids.has(item.id)) return false;
+          ids.add(item.id);
+          return true;
+        })];
+      });
+      setHasMoreEvidence(typeof result.total === "number" ? evidenceOffset.current < result.total && page.length > 0 : page.length === 100);
+    } catch (err) {
+      if (generation === evidenceRequest.current) setEvidenceError(err);
+    } finally {
+      if (generation === evidenceRequest.current) { evidenceBusy.current = false; setEvidenceLoading(false); }
+    }
+  }
   useEffect(() => {
-    let cancelled = false;
-    void api.get<{ items?: RecordItem[] }>("/api/evidence").then((result) => { if (!cancelled) setEvidence(Array.isArray(result.items) ? result.items : []); }).catch(err => { if (!cancelled) setEvidenceError(err); });
-    return () => { cancelled = true; };
+    void loadEvidencePage(true);
+    return () => { evidenceRequest.current++; };
   }, [selected?.id]);
   useEffect(() => {
     if (selected?.id && selected.id === recordRef.current?.id) {
@@ -340,9 +378,11 @@ function DraftEditor({
       </div>
       </div><aside className="draft-context"><fieldset>
         <legend>Reviewed evidence</legend>
-        <small>Showing up to 100 loaded evidence records. Selection does not upload files to Ghostwriter.</small>
+        <small>Showing {evidence.length} loaded evidence records. Selection does not upload files to Ghostwriter.</small>
         {Boolean(evidenceError) && <ErrorMessage error={evidenceError} />}
-        {evidence.length ? evidence.map((item) => <label key={item.id}><input type="checkbox" disabled={Boolean(lockedReason)} checked={selectedEvidenceIds.includes(item.id)} onChange={() => toggleEvidence(item.id)} />{String(item.data.filename ?? item.id)}</label>) : <small>No reviewed evidence records are available.</small>}
+        {evidence.length ? evidence.map((item) => <label key={item.id}><input type="checkbox" disabled={Boolean(lockedReason)} checked={selectedEvidenceIds.includes(item.id)} onChange={() => toggleEvidence(item.id)} />{String(item.data.filename ?? item.id)}</label>) : !evidenceLoading && !evidenceError ? <small>No reviewed evidence records are available.</small> : null}
+        {evidenceLoading && <small role="status">Loading evidence…</small>}
+        {(hasMoreEvidence || Boolean(evidenceError)) && <button type="button" disabled={evidenceLoading} onClick={() => void loadEvidencePage()}>Load more evidence</button>}
       </fieldset>
       <DraftQuestions leadId={text("lead_id")} online={online} onDirtyChange={setQuestionDirty} /></aside></div>
       <p className="save-state" role="status" aria-label="Draft save status" aria-live="polite" aria-atomic="true">

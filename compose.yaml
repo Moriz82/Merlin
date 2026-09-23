@@ -44,7 +44,7 @@ services:
           db.close()
           origin = urlsplit(json.loads(row[0])['origin'])
           client = (http.client.HTTPSConnection('127.0.0.1', int(os.environ['APP_PORT']), context=ssl._create_unverified_context()) if os.environ.get('APP_TLS_CERT') else http.client.HTTPConnection('127.0.0.1', int(os.environ['APP_PORT'])))
-          client.request('GET', '/api/session', headers={'Host': origin.netloc})
+          client.request('GET', '/healthz', headers={'Host': origin.netloc})
           response = client.getresponse()
           assert response.status == 200
           response.read()

@@ -64,11 +64,17 @@ Stop Merlin. Use a scoped API token for one approved Ghostwriter origin and repo
 
 Open the draft. Select **Preview delivery**. Check the exact origin, report, rendered payload, evidence manifest, and hashes. Select **Mark reviewed**, then send that fixed proposal once. If the state is **Uncertain**, use the remote finding ID to reconcile. Do not retry the create mutation.
 
+Enter the Ghostwriter finding ID as decimal digits. Merlin preserves the exact ID, including values larger than JavaScript's safe integer range. Check the remote record before reconciliation.
+
 The adapter sends finding text and an evidence manifest. It does not upload evidence files. Attach reviewed files in Ghostwriter and verify the rendered document before final delivery.
 
 ## Connection loss
 
 The browser shows the last successful sync time. It keeps the loaded view and unsaved text in memory. It disables server writes until the event connection returns. Save urgent text to a file in the approved encrypted workspace. The browser does not store client prose in local storage.
+
+An open event stream does not extend the 30-minute idle session limit. If the session expires, Merlin keeps the draft text on screen and shows **Sign in again**. Select **Save draft file** first if text is unsaved. Signing in again clears local text; the dialog requires an explicit choice. The Docker `/healthz` check reports a degraded state when the audit writer or private storage blocks writes.
+
+Evidence lists and the draft evidence picker load bounded pages. Select **Load more evidence** to reach older records. The count on screen describes loaded records.
 
 ## Back up and restore
 

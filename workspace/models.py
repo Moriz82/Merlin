@@ -1,6 +1,6 @@
 """Strict browser inputs. The model/transport cannot set trusted record state."""
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Strict(BaseModel):
@@ -97,4 +97,11 @@ class DeliveryAction(Strict):
 
 
 class DeliveryReconcile(DeliveryAction):
-    remote_id: int = Field(ge=1)
+    remote_id: str = Field(pattern=r'^[1-9][0-9]{0,18}$')
+
+    @field_validator('remote_id')
+    @classmethod
+    def postgres_bigint(cls, value: str) -> str:
+        if int(value) > 9223372036854775807:
+            raise ValueError('Ghostwriter ID exceeds PostgreSQL bigint range')
+        return value

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ApiError, api, downloadJson, RecordItem, Session } from "../api";
 import { ErrorMessage, Empty, UnsavedDialog } from "../components/common";
+import { Modal } from "../components/Modal";
 import { useRoute } from "./router";
 import { Inbox, Drafts } from "../features/Queues";
 import { Evidence } from "../features/Evidence";
@@ -23,17 +24,28 @@ function Shell({
   const [draft, setDraft] = useState<RecordItem | null | undefined>(undefined);
   const [refresh, setRefresh] = useState(0);
   const [dirty, setDirty] = useState(false);
-  const [connection, setConnection] = useState<"connecting" | "connected" | "offline">("connecting");
+  const [connection, setConnection] = useState<"connecting" | "connected" | "offline" | "expired">("connecting");
+  const authProbe = useRef(0);
+  const [reauthPrompt, setReauthPrompt] = useState(false);
   const [lastSync, setLastSync] = useState("");
   const [pending, setPending] = useState<{ label: string; run: () => void } | null>(null);
   useEffect(() => {
     const events = new EventSource("/api/events");
-    events.onopen = () => { setConnection("connected"); setLastSync(new Date().toISOString()); };
-    events.onerror = () => setConnection("offline");
+    events.onopen = () => { authProbe.current++; setConnection("connected"); setLastSync(new Date().toISOString()); };
+    events.onerror = () => {
+      setConnection("offline");
+      const probe = ++authProbe.current;
+      void api.get<{ active: boolean }>("/api/session-status").then(current => {
+        if (authProbe.current === probe && current.active === false) {
+          setConnection("expired");
+          events.close();
+        }
+      }).catch(() => undefined);
+    };
     const f = () => { setConnection("connected"); setLastSync(new Date().toISOString()); setRefresh((v) => v + 1); };
     events.addEventListener("change", f);
     events.addEventListener("reset", f);
-    return () => events.close();
+    return () => { authProbe.current++; events.close(); };
   }, []);
   useEffect(() => {
     const hashRoute = location.hash.startsWith("#/") ? location.hash.slice(2) || "inbox" : "inbox";
@@ -53,6 +65,10 @@ function Shell({
   }, [route, draft]);
   async function logoutNow() {
     await api.post("/api/logout");
+    api.csrf = null;
+    onLogout();
+  }
+  function reauthenticate() {
     api.csrf = null;
     onLogout();
   }
@@ -123,9 +139,10 @@ function Shell({
             <small>Ghostwriter delivery is review-gated.</small>
           </div>
         </nav>
-        <main className="content" id="main-content" tabIndex={-1}>{connection !== "connected" && <div className="connection-banner" role="status">{connection === "offline" ? "Connection lost." : "Connection not confirmed."} Unsaved text remains in memory. Server writes are disabled. Last sync: {lastSync || "not yet"}.</div>}{content}</main>
+        <main className="content" id="main-content" tabIndex={-1}>{connection === "expired" ? <div className="connection-banner" role="alert">Session expired. Server writes are disabled. Save any unsaved draft with <strong>Save draft file</strong>, then sign in again. <button onClick={() => dirty ? setReauthPrompt(true) : reauthenticate()}>Sign in again</button></div> : connection !== "connected" ? <div className="connection-banner" role="status">{connection === "offline" ? "Connection lost." : "Connection not confirmed."} Unsaved text remains in memory. Server writes are disabled. Last sync: {lastSync || "not yet"}.</div> : null}{content}</main>
       </div>
       {pending && <UnsavedDialog label={pending.label} onStay={() => setPending(null)} onDiscard={() => { const action = pending.run; setPending(null); setDirty(false); action(); }} />}
+      {reauthPrompt && <Modal titleId="reauth-title" onDismiss={() => setReauthPrompt(false)}><h2 id="reauth-title">Unsaved draft changes</h2><p>Save a draft file before signing in again. Signing in again clears the text on this page.</p><div className="actions"><button data-initial-focus onClick={() => setReauthPrompt(false)}>Stay and save draft file</button><button onClick={reauthenticate}>Sign in again and clear local text</button></div></Modal>}
     </div>
   );
 }

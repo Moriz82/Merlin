@@ -338,7 +338,7 @@ def routes(app, store, actor, admin, record):
         try:
             result = execute_graphql(prepared).get('insert_reportedFinding_one')
             if confirmed_remote(result, id, d):
-                remote_id, state = result['id'], 'delivered'
+                remote_id, state = str(result['id']), 'delivered'
         except Exception:
             # An error after dispatch does not prove the server performed no mutation.
             state = 'uncertain'
@@ -365,10 +365,10 @@ def routes(app, store, actor, admin, record):
         result = None
         lookup_failed = False
         try:
-            result = request_graphql(store, LOOKUP, {'id': body.remote_id}, 'MerlinReceipt', config=target, mode=target['mode']).get('reportedFinding_by_pk')
+            result = request_graphql(store, LOOKUP, {'id': int(body.remote_id)}, 'MerlinReceipt', config=target, mode=target['mode']).get('reportedFinding_by_pk')
         except Exception:
             lookup_failed = True
-        confirmed = not lookup_failed and confirmed_remote(result, id, d)
+        confirmed = not lookup_failed and confirmed_remote(result, id, d) and str(result['id']) == body.remote_id
         with store.tx() as c:
             current = store.get(id, c)
             if not current or current['revision_id'] != pending['revision_id'] or current['data'].get('status') != 'reconciling':

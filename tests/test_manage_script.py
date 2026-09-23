@@ -104,14 +104,14 @@ def test_restore_uses_runtime_identity_and_atomic_staging():
     assert '?mode=ro&immutable=1' in restore
 
 
-def test_compose_healthcheck_calls_the_session_endpoint_with_matching_tls_mode():
+def test_compose_healthcheck_calls_write_readiness_with_matching_tls_mode():
     compose = (Path(__file__).parents[1] / 'compose.yaml').read_text()
     assert "http.client.HTTPConnection" in compose
     assert "http.client.HTTPSConnection" in compose
     assert "os.environ.get('APP_TLS_CERT')" in compose
     assert "ssl._create_unverified_context()" in compose
     assert "workspace.db?mode=ro'" in compose
-    assert "client.request('GET', '/api/session', headers={'Host': origin.netloc})" in compose
+    assert "client.request('GET', '/healthz', headers={'Host': origin.netloc})" in compose
     assert 'assert response.status == 200' in compose
 
 

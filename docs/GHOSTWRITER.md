@@ -9,6 +9,8 @@ Ghostwriter delivery is Merlin-only and lead-scribe controlled. It is an optiona
 5. Send the reviewed proposal once.
 6. If the result is uncertain, reconcile it with the remote finding ID. Do not retry the mutation blindly.
 
+Copy the exact decimal finding ID. Merlin accepts canonical positive IDs within Ghostwriter's PostgreSQL `bigint` range and sends them without browser number conversion.
+
 The adapter checks the installed GraphQL shape and uses an exact HTTPS origin, except for a synthetic local container. Ghostwriter v7.2.6 sets `addedAsBlank` on the server. Merlin does not send that field. The preview binds the proposal ID, draft revision, destination, report, rendered payload, and evidence manifest. A draft, evidence, or connection change invalidates the preview. Send and reconcile also require the current displayed delivery revision.
 
 When `attachment_state` is `manual_required`, the finding text and evidence manifest are delivered. The selected evidence files are **not** uploaded. Attach them in Ghostwriter after the reviewed proposal exists.

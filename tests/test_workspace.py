@@ -3,6 +3,7 @@ import json
 import os
 import sqlite3
 import threading
+from types import SimpleNamespace
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import stat
@@ -74,6 +75,105 @@ def test_tampered_audit_blocks_restart(store):
     assert restarted.blocked
     with pytest.raises(RuntimeError):
         restarted.configure('x', 'y')
+
+
+def test_healthcheck_reports_write_readiness_after_audit_tamper(store):
+    base = 'http://127.0.0.1:8710'
+    with TestClient(create_app(store.root), base_url=base) as healthy:
+        assert healthy.get('/healthz').status_code == 200
+    audit = store.root / 'audit.jsonl'
+    audit.write_text(audit.read_text().replace('configuration.changed', 'configuration.altered'))
+    with TestClient(create_app(store.root), base_url=base) as degraded:
+        assert degraded.get('/api/session').status_code == 200
+        response = degraded.get('/healthz')
+        assert response.status_code == 503
+        assert response.json() == {'status': 'degraded'}
+
+
+def test_healthcheck_reports_permission_drift_during_service(client, store):
+    assert client.get('/healthz').status_code == 200
+    audit = store.root / 'audit.jsonl'
+    audit.chmod(0o644)
+    try:
+        assert client.get('/healthz').status_code == 503
+        assert client.post('/api/logout').status_code == 503
+    finally:
+        audit.chmod(0o600)
+
+
+@pytest.mark.parametrize('name,mode', [
+    ('workspace.db', 0o400),
+    ('audit.jsonl', 0o400),
+    ('transcript.log', 0o400),
+    ('artifacts', 0o500),
+    ('artifacts', 0o600),
+    ('artifacts', 0o200),
+    ('keys', 0o500),
+    ('staging', 0o500),
+    ('conflicts', 0o500),
+    ('exports', 0o500),
+])
+def test_healthcheck_rejects_owner_read_only_storage(client, store, name, mode):
+    path = store.root / name
+    original = path.stat().st_mode & 0o777
+    path.chmod(mode)
+    try:
+        assert client.get('/healthz').status_code == 503
+        with pytest.raises(RuntimeError, match='not writable'):
+            store.require_write_ready()
+    finally:
+        path.chmod(original)
+
+
+@pytest.mark.parametrize('name', ['artifacts', 'keys', 'staging', 'conflicts', 'exports'])
+def test_healthcheck_rejects_directory_replaced_by_file(client, store, name):
+    path = store.root / name
+    assert not any(path.iterdir())
+    path.rmdir()
+    path.write_text('synthetic wrong type')
+    path.chmod(0o600)
+    try:
+        assert client.get('/healthz').status_code == 503
+        with pytest.raises(RuntimeError, match='wrong type'):
+            store.require_write_ready()
+    finally:
+        path.unlink()
+        path.mkdir(mode=0o700)
+
+
+def test_event_stream_session_checks_do_not_extend_idle_authentication(store, monkeypatch):
+    from workspace import auth
+    add_user(store, 'stream-user', 'scribe', 'synthetic-stream-password', APP_NAME)
+    token, _ = auth.login(store, 'stream-user', 'synthetic-stream-password', '127.0.0.1')
+    with store.connect() as connection:
+        before = connection.execute('SELECT touched FROM sessions').fetchone()[0]
+    assert auth.session(store, token, touch=False)
+    with store.connect() as connection:
+        assert connection.execute('SELECT touched FROM sessions').fetchone()[0] == before
+    monkeypatch.setattr(auth, 'time', SimpleNamespace(time=lambda: before + 1801))
+    assert auth.session(store, token, touch=False) is None
+
+
+def test_passive_session_endpoints_do_not_refresh_idle_time(client, store, monkeypatch):
+    from workspace import auth
+    with store.connect() as connection:
+        before = connection.execute('SELECT touched FROM sessions').fetchone()[0]
+    for _ in range(3):
+        assert client.get('/api/session-status').json() == {'active': True}
+    original = auth.session
+    calls = []
+    def finite_stream(current_store, token, *, touch=True):
+        calls.append(touch)
+        return original(current_store, token, touch=touch) if len(calls) % 2 else None
+    monkeypatch.setattr(auth, 'session', finite_stream)
+    for _ in range(2):
+        assert client.get('/api/events').status_code == 200
+    assert calls == [False] * 4
+    monkeypatch.setattr(auth, 'session', original)
+    with store.connect() as connection:
+        assert connection.execute('SELECT touched FROM sessions').fetchone()[0] == before
+    monkeypatch.setattr(auth, 'time', SimpleNamespace(time=lambda: before + 1801))
+    assert client.get('/api/session-status').json() == {'active': False}
 
 
 def test_permission_drift_blocks_changes(store):
@@ -377,7 +477,7 @@ def test_scribe_cannot_use_host_transfer_or_delivery_operations(client, store):
     delivery_action = {'delivery_revision_id': str(uuid.uuid4()), 'payload_hash': 'a' * 64}
     assert limited.post(f'/api/deliveries/{record_id}/send', json=delivery_action).status_code == 403
     assert limited.post(f'/api/deliveries/{record_id}/reconcile', json={
-        **delivery_action, 'remote_id': 1,
+        **delivery_action, 'remote_id': '1',
     }).status_code == 403
 
 

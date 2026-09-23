@@ -47,12 +47,13 @@ def login(store, name, password, address):
         return token, csrf
 
 
-def session(store, token):
+def session(store, token, *, touch=True):
     if not token:
         return None
     with store.connect() as c:
         row = c.execute("SELECT sessions.*,users.name,users.role FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=?", (hashlib.sha256(token.encode()).hexdigest(),)).fetchone()
         if not row or row["expires"] < time.time() or row["touched"] < time.time() - 1800:
             return None
-        c.execute("UPDATE sessions SET touched=? WHERE token=?", (time.time(), row["token"]))
+        if touch:
+            c.execute("UPDATE sessions SET touched=? WHERE token=?", (time.time(), row["token"]))
         return dict(row)

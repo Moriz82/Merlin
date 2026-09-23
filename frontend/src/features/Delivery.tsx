@@ -44,6 +44,7 @@ function DraftFlow({
   const [refreshing, setRefreshing] = useState(false);
   const [reconciling, setReconciling] = useState(false);
   const canLead = role === "lead_scribe";
+  const validRemoteId = remoteId.length <= 19 && /^[1-9]\d*$/.test(remoteId) && BigInt(remoteId) <= 9223372036854775807n;
   useEffect(() => {
     void api.get<{ ghostwriter: { report_id?: string; status?: "verified" | "configured_unverified" | "not_configured" } }>("/api/connections")
       .then((result) => {
@@ -136,7 +137,7 @@ function DraftFlow({
   }
   async function reconcile() {
     const payloadHash = String(delivery?.data.payload_hash ?? "");
-    if (!canLead || !online || !delivery || refreshing || reconciling || delivery.data.status !== "uncertain" || !payloadHash || !/^\d+$/.test(remoteId)) return;
+    if (!canLead || !online || !delivery || refreshing || reconciling || delivery.data.status !== "uncertain" || !payloadHash || !validRemoteId) return;
     setBusy(true);
     setReconciling(true);
     setError(null);
@@ -144,7 +145,7 @@ function DraftFlow({
       setDelivery(await api.post<RecordItem>(`/api/deliveries/${delivery.id}/reconcile`, {
         delivery_revision_id: delivery.revision_id,
         payload_hash: payloadHash,
-        remote_id: Number(remoteId),
+        remote_id: remoteId,
       }));
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) setProposal(null);
@@ -239,7 +240,7 @@ function DraftFlow({
               : ""}
           </p>{String(delivery.data.attachment_state ?? "") === "manual_required" && <p className="uncertainty" role="status">{attachmentMessage(deliveryStatus)}</p>}</>
         )}
-        {deliveryStatus === 'uncertain' && <div className="reconcile"><label>Remote Ghostwriter finding ID<input inputMode="numeric" value={remoteId} onChange={(event) => setRemoteId(event.target.value)} /></label><button disabled={!canLead || !online || busy || refreshing || reconciling || !delivery?.data.payload_hash || !/^\d+$/.test(remoteId)} onClick={() => void reconcile()}>{reconciling ? 'Reconciling receipt…' : 'Reconcile receipt'}</button></div>}
+        {deliveryStatus === 'uncertain' && <div className="reconcile"><label>Remote Ghostwriter finding ID<input inputMode="numeric" maxLength={19} value={remoteId} onChange={(event) => setRemoteId(event.target.value)} /></label><button disabled={!canLead || !online || busy || refreshing || reconciling || !delivery?.data.payload_hash || !validRemoteId} onClick={() => void reconcile()}>{reconciling ? 'Reconciling receipt…' : 'Reconcile receipt'}</button></div>}
       </div>
     </section>
   );

@@ -51,6 +51,34 @@ describe('Merlin UI contract', () => {
     expect(screen.getByText(/Connection lost/)).toBeInTheDocument()
   })
 
+  it('keeps unsaved draft text visible when the session expires', async () => {
+    let expired = false
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path === '/api/session') return response(session)
+      if (path === '/api/session-status') return response({ active: !expired })
+      return baseFetch(path)
+    })
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Inbox' })
+    fireEvent.click(screen.getByRole('link', { name: 'Drafts' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Draft/ }))
+    const editor = await screen.findByLabelText('Draft description in Markdown')
+    fireEvent.change(editor, { target: { value: 'Unsaved report text' } })
+    expired = true
+    act(() => eventSources[0]?.onerror?.())
+    expect(await screen.findByText(/Session expired/)).toBeInTheDocument()
+    expect(editor).toHaveValue('Unsaved report text')
+    expect(screen.getByRole('button', { name: 'Save draft file' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in again' }))
+    expect(await screen.findByRole('dialog', { name: 'Unsaved draft changes' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Stay and save draft file' }))
+    expect(editor).toHaveValue('Unsaved report text')
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in again' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in again and clear local text' }))
+    expect(await screen.findByRole('heading', { name: 'Make the prose accountable.' })).toBeInTheDocument()
+  })
+
   it('uses dispatchable SSE events for sync state without claiming an unsaved write', async () => {
     render(<App />)
     await screen.findByRole('heading', { name: 'Inbox' })
@@ -325,6 +353,152 @@ describe('Merlin UI contract', () => {
     await waitFor(() => expect(screen.queryByText('Stale first proof')).toBeNull())
   })
 
+  it('loads and previews evidence beyond the first 100 records without duplicate rows', async () => {
+    const records = Array.from({ length: 101 }, (_, index) => ({ id: `e-${index + 1}`, kind: 'evidence', revision_id: 'r1', updated_at: 'now', data: { filename: `proof-${index + 1}.txt` } }))
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path === '/api/evidence') return response({ items: records.slice(0, 100), total: 101 })
+      if (path === '/api/evidence?limit=100&offset=100') return response({ items: [records[0], records[100]], total: 101 })
+      if (path === '/api/evidence/e-101/preview') return response({ text: 'Proof on page two', quarantined: false })
+      return baseFetch(path)
+    })
+    render(<Evidence refreshKey={0} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Load more evidence' }))
+    fireEvent.click(await screen.findByRole('button', { name: /proof-101.txt/ }))
+    expect(await screen.findByText('Proof on page two')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /proof-1.txt/ })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Load more evidence' })).toBeNull()
+  })
+
+  it('rechecks selected page-two evidence and preserves an unsent question after refresh', async () => {
+    const first = Array.from({ length: 100 }, (_, index) => ({ id: `e-${index + 1}`, kind: 'upload', revision_id: 'r1', updated_at: 'now', data: { filename: `proof-${index + 1}.txt` } }))
+    const older = { id: 'e-101', kind: 'upload', revision_id: 'r1', updated_at: 'now', data: { filename: 'older.txt', finding_id: 'finding-1' } }
+    const changed = { ...older, revision_id: 'r2', data: { ...older.data, filename: 'changed.txt' } }
+    let refreshed = false
+    let finishExact!: (value: Response) => void
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path === '/api/evidence') return response({ items: first, total: 101 })
+      if (path === '/api/evidence?limit=100&offset=100') return response({ items: [older], total: 101 })
+      if (path === '/api/records/e-101') return new Promise<Response>(resolve => { finishExact = resolve })
+      if (path === '/api/evidence/e-101/preview') return response({ text: refreshed ? 'Changed synthetic proof' : 'Old synthetic proof', quarantined: false, base_revision_id: refreshed ? 'r2' : 'r1' })
+      return baseFetch(path)
+    })
+    const view = render(<Evidence refreshKey={0} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Load more evidence' }))
+    fireEvent.click(await screen.findByRole('button', { name: /older.txt/ }))
+    expect(await screen.findByText('Old synthetic proof')).toBeInTheDocument()
+    fireEvent.change(screen.getByPlaceholderText('Record a question for the finding owner'), { target: { value: 'Unsent synthetic question' } })
+    refreshed = true
+    view.rerender(<Evidence refreshKey={1} />)
+    await waitFor(() => expect(finishExact).toBeTypeOf('function'))
+    expect(screen.queryByText('Old synthetic proof')).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('Unsent synthetic question')).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Ask' })).not.toBeInTheDocument()
+    await act(async () => finishExact(response(changed)))
+    expect(await screen.findByText('Changed synthetic proof')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Unsent synthetic question')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ask' })).toBeEnabled()
+    expect(screen.getByRole('heading', { name: 'changed.txt' })).toBeInTheDocument()
+  })
+
+  it('keeps unsent text visible when older evidence is deleted and ignores an old preview reply', async () => {
+    const first = Array.from({ length: 100 }, (_, index) => ({ id: `e-${index + 1}`, kind: 'upload', revision_id: 'r1', updated_at: 'now', data: { filename: `proof-${index + 1}.txt` } }))
+    const older = { id: 'e-101', kind: 'upload', revision_id: 'r1', updated_at: 'now', data: { filename: 'older.txt', finding_id: 'finding-1' } }
+    let finishOldPreview!: (value: Response) => void
+    let refreshed = 0
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path === '/api/evidence') return response({ items: first, total: refreshed === 2 ? 100 : 101 })
+      if (path === '/api/evidence?limit=100&offset=100') return response({ items: [older], total: 101 })
+      if (path === '/api/records/e-101') return refreshed === 2 ? response({ detail: 'Not found' }, 404) : response(older)
+      if (path === '/api/evidence/e-101/preview') return refreshed ? new Promise<Response>(resolve => { finishOldPreview = resolve }) : response({ text: 'Old synthetic proof', quarantined: false })
+      return baseFetch(path)
+    })
+    const view = render(<Evidence refreshKey={0} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Load more evidence' }))
+    fireEvent.click(await screen.findByRole('button', { name: /older.txt/ }))
+    expect(await screen.findByText('Old synthetic proof')).toBeInTheDocument()
+    fireEvent.change(screen.getByPlaceholderText('Record a question for the finding owner'), { target: { value: 'Unsent synthetic question' } })
+    refreshed = 1
+    view.rerender(<Evidence refreshKey={1} />)
+    await waitFor(() => expect(finishOldPreview).toBeTypeOf('function'))
+    refreshed = 2
+    view.rerender(<Evidence refreshKey={2} />)
+    expect(await screen.findByText(/Evidence preview is unavailable/)).toBeInTheDocument()
+    await act(async () => finishOldPreview(response({ text: 'Late stale proof', quarantined: false })))
+    expect(screen.queryByText('Late stale proof')).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('Unsent synthetic question')).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Ask' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry evidence' }))
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([input]) => String(input) === '/api/records/e-101').length).toBeGreaterThan(1))
+    expect(screen.getByDisplayValue('Unsent synthetic question')).toBeDisabled()
+  })
+
+  it('ignores a page response from before an evidence refresh', async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({ id: `old-${index}`, kind: 'evidence', revision_id: 'r1', updated_at: 'now', data: { filename: `old-${index}.txt` } }))
+    const fresh = { id: 'fresh', kind: 'evidence', revision_id: 'r2', updated_at: 'now', data: { filename: 'fresh.txt' } }
+    let resolveOldPage!: (value: Response) => void
+    const oldPage = new Promise<Response>(resolve => { resolveOldPage = resolve })
+    let refreshed = false
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path === '/api/evidence') return response(refreshed ? { items: [fresh], total: 1 } : { items: firstPage, total: 101 })
+      if (path === '/api/evidence?limit=100&offset=100') return oldPage
+      return baseFetch(path)
+    })
+    const view = render(<Evidence refreshKey={0} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Load more evidence' }))
+    refreshed = true
+    view.rerender(<Evidence refreshKey={1} />)
+    expect(await screen.findByRole('button', { name: /fresh.txt/ })).toBeInTheDocument()
+    await act(async () => resolveOldPage(response({ items: [{ ...fresh, id: 'stale', data: { filename: 'stale.txt' } }], total: 101 })))
+    expect(screen.queryByRole('button', { name: /stale.txt/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /old-0.txt/ })).toBeNull()
+  })
+
+  it('selects evidence beyond the first 100 records in a draft', async () => {
+    const records = Array.from({ length: 101 }, (_, index) => ({ id: `e-${index + 1}`, kind: 'evidence', revision_id: 'r1', updated_at: 'now', data: { filename: `proof-${index + 1}.txt` } }))
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input)
+      if (path === '/api/evidence') return response({ items: records.slice(0, 100), total: 101 })
+      if (path === '/api/evidence?limit=100&offset=100') return response({ items: [records[100]], total: 101 })
+      if (path === '/api/records/draft-1' && init?.method === 'PUT') return response({ ...draft, revision_id: 'rev-2', data: { ...draft.data, evidence_ids: ['e-101'] } })
+      return baseFetch(path)
+    })
+    render(<DraftEditor selected={draft} onSaved={() => undefined} onDirtyChange={() => undefined} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Load more evidence' }))
+    fireEvent.click(await screen.findByLabelText('proof-101.txt'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save now' }))
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([input, init]) => String(input) === '/api/records/draft-1' && init?.method === 'PUT')
+      expect(JSON.parse(String(call?.[1]?.body)).data.evidence_ids).toEqual(['e-101'])
+    })
+  })
+
+  it('preserves a GraphQL bigint as a decimal string during reconciliation', async () => {
+    const uncertain = { id: 'delivery-big', kind: 'delivery', revision_id: 'dr-1', updated_at: 'now', data: { status: 'uncertain', draft_id: 'draft-1', report_id: 'report-1', payload_hash: 'hash-1' } }
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input)
+      if (path === '/api/deliveries') return response({ items: [uncertain] })
+      if (path === '/api/deliveries/delivery-big/reconcile' && init?.method === 'POST') return response({ ...uncertain, data: { ...uncertain.data, status: 'delivered', remote_id: '9007199254740993' } })
+      return baseFetch(path)
+    })
+    render(<DraftFlow selected={draft} onBack={() => undefined} />)
+    const input = await screen.findByLabelText('Remote Ghostwriter finding ID')
+    const button = screen.getByRole('button', { name: 'Reconcile receipt' })
+    fireEvent.change(input, { target: { value: '00' } })
+    expect(button).toBeDisabled()
+    fireEvent.change(input, { target: { value: '9223372036854775808' } })
+    expect(button).toBeDisabled()
+    fireEvent.change(input, { target: { value: '9007199254740993' } })
+    fireEvent.click(button)
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([request, init]) => String(request) === '/api/deliveries/delivery-big/reconcile' && init?.method === 'POST')
+      expect(JSON.parse(String(call?.[1]?.body)).remote_id).toBe('9007199254740993')
+    })
+  })
+
   it('reviews, sends, and reloads an uncertain Ghostwriter delivery status', async () => {
     const uncertain = { id: 'delivery-1', kind: 'delivery', revision_id: 'dr-2', updated_at: '2026-09-08T19:01:00Z', data: { status: 'uncertain', draft_id: 'draft-1', report_id: 'report-1', payload_hash: 'hash-1' } }
     const delivered = { ...uncertain, revision_id: 'dr-3', data: { ...uncertain.data, status: 'delivered', remote_id: 44 } }
@@ -374,7 +548,7 @@ describe('Merlin UI contract', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reconcile receipt' }))
     await waitFor(() => {
       const call = fetchMock.mock.calls.find(([input, init]) => String(input) === '/api/deliveries/delivery-1/reconcile' && init?.method === 'POST')
-      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ delivery_revision_id: 'dr-2', payload_hash: 'hash-1', remote_id: 44 })
+      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ delivery_revision_id: 'dr-2', payload_hash: 'hash-1', remote_id: '44' })
     })
     expect(await screen.findByText('delivered')).toBeInTheDocument()
     first.unmount()

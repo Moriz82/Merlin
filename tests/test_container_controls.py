@@ -113,7 +113,7 @@ def reconcile_delivery(client, delivery, remote_id, **overrides):
     body = {
         'delivery_revision_id': delivery['revision_id'],
         'payload_hash': delivery['data']['payload_hash'],
-        'remote_id': remote_id,
+        'remote_id': str(remote_id),
         **overrides,
     }
     return client.post('/api/deliveries/' + delivery['id'] + '/reconcile', json=body)
@@ -877,7 +877,8 @@ def test_delivery_rejects_unreviewed_or_changed_evidence(client, store):
 
 
 @pytest.mark.skipif(APP_NAME != 'Merlin', reason='Only Merlin verifies Ghostwriter receipts')
-def test_delivery_requires_exact_remote_metadata_and_reconciliation(client, store, monkeypatch):
+@pytest.mark.parametrize('remote_id', [42, 9007199254740993])
+def test_delivery_requires_exact_remote_metadata_and_reconciliation(client, store, monkeypatch, remote_id):
     from workspace.ghostwriter_adapter import ADAPTER
     store = client.app.state.store
     store.configure('ghostwriter', {
@@ -892,7 +893,7 @@ def test_delivery_requires_exact_remote_metadata_and_reconciliation(client, stor
     stored = store.get(reviewed['id'])['data']
     monkeypatch.setattr('workspace.ghostwriter_adapter.execute_graphql', completed_graphql({
         'insert_reportedFinding_one': {
-            'id': 42, 'reportId': '7', 'title': stored['payload']['title'],
+            'id': remote_id, 'reportId': '7', 'title': stored['payload']['title'],
             'extraFields': {'merlin_proposal_id': reviewed['id']},
         }
     }))
@@ -902,28 +903,28 @@ def test_delivery_requires_exact_remote_metadata_and_reconciliation(client, stor
     def lookup(store, query, variables, operation, **kwargs):
         reconciliation_calls.append(variables)
         return {'reportedFinding_by_pk': {
-            'id': 42, 'reportId': '7', 'title': stored['payload']['title'],
+            'id': remote_id, 'reportId': '7', 'title': stored['payload']['title'],
             'extraFields': {**stored['payload']['extraFields'], 'merlin_revision_id': 'wrong'},
         }}
     monkeypatch.setattr('workspace.ghostwriter_adapter.request_graphql', lookup)
-    stale = reconcile_delivery(client, uncertain.json(), 42, delivery_revision_id=reviewed['revision_id'])
+    stale = reconcile_delivery(client, uncertain.json(), remote_id, delivery_revision_id=reviewed['revision_id'])
     assert stale.status_code == 409
     assert reconciliation_calls == []
-    rejected = reconcile_delivery(client, uncertain.json(), 42)
+    rejected = reconcile_delivery(client, uncertain.json(), remote_id)
     assert rejected.status_code == 409
-    assert reconciliation_calls == [{'id': 42}]
+    assert reconciliation_calls == [{'id': remote_id}]
     current = store.get(reviewed['id'])
     assert current['data']['status'] == 'uncertain'
     monkeypatch.setattr('workspace.ghostwriter_adapter.request_graphql', lambda store, query, variables, operation, **kwargs: {
         'reportedFinding_by_pk': {
-            'id': 42, 'reportId': '7', 'title': stored['payload']['title'],
+            'id': remote_id, 'reportId': '7', 'title': stored['payload']['title'],
             'extraFields': stored['payload']['extraFields'],
         }
     })
-    delivered = reconcile_delivery(client, current, 42)
+    delivered = reconcile_delivery(client, current, remote_id)
     assert delivered.status_code == 200
     assert delivered.json()['data']['status'] == 'delivered'
-    assert delivered.json()['data']['remote_id'] == 42
+    assert delivered.json()['data']['remote_id'] == str(remote_id)
 
 
 @pytest.mark.skipif(APP_NAME != 'Merlin', reason='Only Merlin reconciles Ghostwriter receipts')

@@ -131,15 +131,7 @@ class Store:
     @contextlib.contextmanager
     def tx(self):
         with self.lock:
-            if self.readonly:
-                raise RuntimeError('This workspace is open read-only')
-            if self.blocked:
-                raise RuntimeError(self.blocked)
-            for name in ("", "workspace.db", "audit.jsonl", "transcript.log", "artifacts", "keys", "staging", "conflicts", "exports"):
-                private(self.root / name)
-            if self.audit_stats is not None and self.audit_stats != self._stats():
-                self.blocked = 'Audit files changed outside the writer. Inspect integrity before new work.'
-                raise RuntimeError(self.blocked)
+            self._assert_write_ready()
             c = self.connect()
             try:
                 c.execute("BEGIN IMMEDIATE")
@@ -155,6 +147,34 @@ class Store:
                 raise
             finally:
                 c.close()
+
+    def _assert_write_ready(self):
+        if self.readonly:
+            raise RuntimeError('This workspace is open read-only')
+        if self.blocked:
+            raise RuntimeError(self.blocked)
+        directories = ("", "artifacts", "keys", "staging", "conflicts", "exports")
+        files = ("workspace.db", "audit.jsonl", "transcript.log")
+        for name in directories + files:
+            path = self.root / name
+            private(path)
+            mode = path.lstat().st_mode
+            if name in directories:
+                ready = stat.S_ISDIR(mode) and mode & 0o700 == 0o700
+            else:
+                ready = stat.S_ISREG(mode) and mode & 0o600 == 0o600
+            if not ready:
+                raise RuntimeError('Private storage is not writable or has the wrong type. Stop and inspect the workspace.')
+        if os.statvfs(self.root).f_flag & getattr(os, 'ST_RDONLY', 1):
+            raise RuntimeError('Private storage is read-only. Stop and inspect the workspace.')
+        if self.audit_stats is not None and self.audit_stats != self._stats():
+            self.blocked = 'Audit files changed outside the writer. Inspect integrity before new work.'
+            raise RuntimeError(self.blocked)
+
+    def require_write_ready(self):
+        """Check mutation prerequisites without writing or changing counters."""
+        with self.lock:
+            self._assert_write_ready()
 
     def event(self, c, actor, operation, ids=(), **metadata):
         previous = c.execute("SELECT seq,hash FROM events ORDER BY seq DESC LIMIT 1").fetchone()
