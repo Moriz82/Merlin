@@ -1,6 +1,6 @@
 # Merlin
 
-Merlin is a private writing desk. It receives leads, keeps revisioned report drafts, and offers a reviewed Ghostwriter delivery path. It does not run scanners, model transport, or raw HTML rendering.
+Merlin is a local writing desk. It receives leads, keeps revisioned report drafts, and offers a reviewed Ghostwriter delivery path. It does not run scanners, model transport, or raw HTML rendering. This source repository is public; engagement data and credentials remain private.
 
 ## First local start
 

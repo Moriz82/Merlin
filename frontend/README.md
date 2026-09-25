@@ -1,6 +1,6 @@
 # Merlin frontend
 
-Merlin is the private writing desk. It uses same-origin API calls and the approved Harbinger/Merlin contract. It has no model transport, scanner execution, fixture fallback, or raw HTML rendering.
+Merlin is the local writing desk. It uses same-origin API calls and the approved Harbinger/Merlin contract. It has no model transport, scanner execution, fixture fallback, or raw HTML rendering.
 
 ```sh
 npm ci

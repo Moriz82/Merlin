@@ -2,6 +2,8 @@
 
 Approved 2026-09-08. Source: current user request in this Codex thread.
 
+Publication update 2026-09-24: the Harbinger and Merlin source repositories are public. The private-repository line below records the original plan; engagement data, keys, and runtime state remain private.
+
 Harbinger imports human-run tool output, maps evidenced relationships, and stores tester notes.
 Merlin provides a lead queue, Markdown drafts, revision review, and approved report-specific Ghostwriter delivery.
 No scanner execution, exploit execution, model transport, or AI harness integration is in scope.
